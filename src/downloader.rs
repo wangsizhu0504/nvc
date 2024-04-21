@@ -3,11 +3,14 @@ use crate::archive;
 use crate::archive::{Error as ExtractError, Extract};
 use crate::directory_portal::DirectoryPortal;
 use crate::version::Version;
+use crate::progress::ResponseProgress;
 use log::debug;
+use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use thiserror::Error;
 use url::Url;
+use indicatif::{HumanBytes};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -65,7 +68,7 @@ fn download_url(base_url: &Url, version: &Version, arch: &Arch) -> Url {
 
 pub fn extract_archive_into<P: AsRef<Path>>(
     path: P,
-    response: crate::http::Response,
+    response: impl Read,
 ) -> Result<(), Error> {
     #[cfg(unix)]
     let extractor = archive::TarXz::new(response);
@@ -109,7 +112,21 @@ pub fn install_node_dist<P: AsRef<Path>>(
     }
 
     debug!("Extracting response...");
-    extract_archive_into(&portal, response)?;
+    let len = response.content_length();
+    let size = match len {
+        Some(l) => HumanBytes(l).to_string(),
+        None => "unknown".into(),
+    };
+
+    println!();
+    println!("Version   : {} ({})", version.v_str(),arch.to_string());
+    println!("Release   : {}", url.as_str());
+    println!("Size      : {}", size);
+    println!();
+    extract_archive_into(
+        &portal,
+        ResponseProgress::new(response),
+    )?;
     debug!("Extraction completed");
 
     let installed_directory = std::fs::read_dir(&portal)?

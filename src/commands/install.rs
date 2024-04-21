@@ -118,13 +118,6 @@ impl Command for Install {
         let safe_arch = get_safe_arch(&config.arch, &version);
 
         let version_str = format!("Node {}", &version);
-        outln!(
-            config,
-            Info,
-            "Installing {} ({})",
-            version_str.cyan(),
-            safe_arch.to_string()
-        );
 
         match install_node_dist(
             &version,

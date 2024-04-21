@@ -36,6 +36,7 @@ mod version_files;
 mod log_level;
 mod default_version;
 mod directories;
+mod progress;
 
 fn main() {
     env_logger::init();
