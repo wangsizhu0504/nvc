@@ -3,6 +3,25 @@ use crate::commands::command::Command;
 use crate::config::NvcConfig;
 use clap::Parser;
 
+// const BORDERS_TL :&str = "╔";
+// const BORDERS_TR :&str = "╗";
+// const BORDERS_BL :&str = "╚";
+// const BORDERS_BR :&str = "╝";
+// const BORDERS_V :&str = "║";
+// const BORDERS_H_PURE :&str = "═";
+
+const LONG_ABOUT_TEMPLATE: &str = "
+
+\x1b[38;5;29mNode Version Control (V{version})\x1B[0m
+
+{usage-heading}
+    {usage}
+
+{all-args}
+
+{after-help}";
+
+
 #[derive(clap::Parser, Debug)]
 pub enum SubCommand {
     /// List all remote Node.js versions
@@ -90,9 +109,9 @@ impl SubCommand {
     }
 }
 
-/// A fast and simple Node.js manager.
 #[derive(clap::Parser, Debug)]
 #[clap(name = "nvc", version = env!("CARGO_PKG_VERSION"), bin_name = "nvc")]
+#[command(help_template(LONG_ABOUT_TEMPLATE))]
 pub struct Cli {
     #[clap(flatten)]
     pub config: NvcConfig,
