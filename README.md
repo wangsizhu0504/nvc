@@ -2,7 +2,7 @@
   Node Version Control Tool
 </h1>
 
-> A self-contained version control tool for Node.JS, fork from [nvc](https://github.com/Schniz/nvc)
+> A self-contained version control tool for Node.JS, fork from [fnm](https://github.com/Schniz/fnm)
 
 ## Features
 
@@ -182,7 +182,7 @@ call "%CMDER_ROOT%\bin\nvc_init.cmd"
 
 You can replace `%CMDER_ROOT%` with any other convenient path too.
 
-## [Usage](./docs/commands.md)
+## Usage
 
 [For extended usage documentation, see Fnm's command](https://github.com/Schniz/fnm/blob/master/docs/commands.md)
 
