@@ -19,7 +19,9 @@ const LONG_ABOUT_TEMPLATE: &str = "
 
 {all-args}
 
-{after-help}";
+Note:
+  To remove nvc, just delete the `.nvc` folder in your home directory. You should also edit your shell configuration to remove any references to nvc
+  ";
 
 
 #[derive(clap::Parser, Debug)]
