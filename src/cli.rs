@@ -3,13 +3,6 @@ use crate::commands::command::Command;
 use crate::config::NvcConfig;
 use clap::Parser;
 
-// const BORDERS_TL :&str = "╔";
-// const BORDERS_TR :&str = "╗";
-// const BORDERS_BL :&str = "╚";
-// const BORDERS_BR :&str = "╝";
-// const BORDERS_V :&str = "║";
-// const BORDERS_H_PURE :&str = "═";
-
 const LONG_ABOUT_TEMPLATE: &str = "
 
 \x1b[38;5;29mNode Version Control (V{version})\x1B[0m

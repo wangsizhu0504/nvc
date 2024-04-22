@@ -73,7 +73,7 @@ pub fn extract_archive_into<P: AsRef<Path>>(
     #[cfg(unix)]
     let extractor = archive::TarXz::new(response);
     #[cfg(windows)]
-    let extractor = archive::Zip::new(response);
+    let extractor = archive::zip::Zip::new(response);
     extractor.extract_into(path)?;
     Ok(())
 }
