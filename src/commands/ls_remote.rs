@@ -49,9 +49,8 @@ impl super::command::Command for LsRemote {
             all_versions.retain(|v| filter.matches(&v.version, config));
         }
         if self.latest {
-            all_versions.truncate(1);
+            all_versions.drain(0..all_versions.len() - 1);
         }
-        all_versions.sort_by_key(|v| v.version.clone());
         if let SortingMethod::Descending = self.sort {
             all_versions.reverse();
         }
