@@ -28,11 +28,11 @@ impl Shell for Fish {
     fn use_on_cd(&self, config: &crate::config::NvcConfig) -> anyhow::Result<String> {
         let autoload_hook = match config.version_file_strategy() {
             VersionFileStrategy::Local => indoc!(
-                r#"
+                r"
                     if test -f .node-version -o -f .nvmrc
                         nvc use --silent-if-unchanged
                     end
-                "#
+                "
             ),
             VersionFileStrategy::Recursive => r#"nvc use --silent-if-unchanged"#,
         };

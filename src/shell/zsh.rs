@@ -32,13 +32,13 @@ impl Shell for Zsh {
     fn use_on_cd(&self, config: &crate::config::NvcConfig) -> anyhow::Result<String> {
         let autoload_hook = match config.version_file_strategy() {
             VersionFileStrategy::Local => indoc!(
-                r#"
+                r"
                     if [[ -f .node-version || -f .nvmrc ]]; then
                         nvc use --silent-if-unchanged
                     fi
-                "#
+                "
             ),
-            VersionFileStrategy::Recursive => r#"nvc use --silent-if-unchanged"#,
+            VersionFileStrategy::Recursive => r"nvc use --silent-if-unchanged",
         };
         Ok(formatdoc!(
             r#"

@@ -28,11 +28,11 @@ impl Shell for PowerShell {
     fn use_on_cd(&self, config: &crate::config::NvcConfig) -> anyhow::Result<String> {
         let autoload_hook = match config.version_file_strategy() {
             VersionFileStrategy::Local => indoc!(
-                r#"
+                r"
                     If ((Test-Path .nvmrc) -Or (Test-Path .node-version)) { & nvc use --silent-if-unchanged }
-                "#
+                "
             ),
-            VersionFileStrategy::Recursive => r#"nvc use --silent-if-unchanged"#,
+            VersionFileStrategy::Recursive => r"nvc use --silent-if-unchanged",
         };
         Ok(formatdoc!(
             r#"

@@ -7,7 +7,7 @@ use url::Url;
 
 #[derive(clap::Parser, Debug)]
 pub struct NvcConfig {
-    /// https://nodejs.org/dist/ mirror
+    /// <https://nodejs.org/dist/> mirror
     #[clap(
         long,
         env = "NVC_NODE_DIST_MIRROR",
@@ -67,7 +67,7 @@ pub struct NvcConfig {
 
     /// Enable corepack support for each new installation.
     /// This will make nvc call `corepack enable` on every Node.js installation.
-    /// For more information about corepack see https://nodejs.org/api/corepack.html
+    /// For more information about corepack see <https://nodejs.org/api/corepack.html>
     #[clap(
         long,
         env = "NVC_COREPACK_ENABLED",
