@@ -10,17 +10,24 @@ pub struct LsRemote {
     /// Filter versions by a user-defined version or a semver range
     #[arg(long)]
     filter: Option<UserVersion>,
+
     /// Show only LTS versions (optionally filter by LTS codename)
     #[arg(long)]
-    #[allow(clippy::option_option)]
+    #[expect(
+        clippy::option_option,
+        reason = "clap Option<Option<T>> supports --x and --x=value syntaxes"
+    )]
     lts: Option<Option<String>>,
+
     /// Version sorting order
     #[arg(long, default_value = "asc")]
     sort: SortingMethod,
+
     /// Only show the latest matching version
     #[arg(long)]
     latest: bool,
 }
+
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
 pub enum SortingMethod {
     #[clap(name = "desc")]
@@ -30,11 +37,22 @@ pub enum SortingMethod {
     /// Sort versions in ascending order (earliest to latest)
     Ascending,
 }
+
+/// Drain all elements but the last one
+fn truncate_except_latest<T>(list: &mut Vec<T>) {
+    let len = list.len();
+    if len > 1 {
+        list.swap(0, len - 1);
+        list.truncate(1);
+    }
+}
+
 impl super::command::Command for LsRemote {
     type Error = Error;
 
     fn apply(self, config: &NvcConfig) -> Result<(), Self::Error> {
         let mut all_versions = remote_node_index::list(&config.node_dist_mirror)?;
+
         if let Some(lts) = &self.lts {
             match lts {
                 Some(codename) => all_versions.retain(|v| {
@@ -45,15 +63,19 @@ impl super::command::Command for LsRemote {
                 None => all_versions.retain(|v| v.lts.is_some()),
             };
         }
+
         if let Some(filter) = &self.filter {
             all_versions.retain(|v| filter.matches(&v.version, config));
         }
+
         if self.latest {
-            all_versions.drain(0..all_versions.len() - 1);
+            truncate_except_latest(&mut all_versions);
         }
+
         if let SortingMethod::Descending = self.sort {
             all_versions.reverse();
         }
+
         if all_versions.is_empty() {
             eprintln!("{}", "No versions were found!".red());
             return Ok(());
@@ -74,8 +96,28 @@ impl super::command::Command for LsRemote {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
-    HttpError {
+    RemoteListing {
         #[from]
-        source: crate::http::Error,
+        source: remote_node_index::Error,
     },
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_truncate_except_latest() {
+        let mut list = vec![1, 2, 3, 4, 5];
+        truncate_except_latest(&mut list);
+        assert_eq!(list, vec![5]);
+
+        let mut list: Vec<()> = vec![];
+        truncate_except_latest(&mut list);
+        assert_eq!(list, vec![]);
+
+        let mut list = vec![1];
+        truncate_except_latest(&mut list);
+        assert_eq!(list, vec![1]);
+    }
 }
