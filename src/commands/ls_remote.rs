@@ -7,23 +7,20 @@ use thiserror::Error;
 
 #[derive(clap::Parser, Debug)]
 pub struct LsRemote {
-    /// Filter with SemVer
+    /// Filter versions by a user-defined version or a semver range
     #[arg(long)]
     filter: Option<UserVersion>,
-    
     /// Show only LTS versions (optionally filter by LTS codename)
     #[arg(long)]
+    #[allow(clippy::option_option)]
     lts: Option<Option<String>>,
-    
     /// Version sorting order
     #[arg(long, default_value = "asc")]
     sort: SortingMethod,
-    
     /// Only show the latest matching version
     #[arg(long)]
     latest: bool,
 }
-
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
 pub enum SortingMethod {
     #[clap(name = "desc")]
@@ -33,13 +30,11 @@ pub enum SortingMethod {
     /// Sort versions in ascending order (earliest to latest)
     Ascending,
 }
-
 impl super::command::Command for LsRemote {
     type Error = Error;
 
     fn apply(self, config: &NvcConfig) -> Result<(), Self::Error> {
         let mut all_versions = remote_node_index::list(&config.node_dist_mirror)?;
-        
         if let Some(lts) = &self.lts {
             match lts {
                 Some(codename) => all_versions.retain(|v| {
@@ -50,25 +45,21 @@ impl super::command::Command for LsRemote {
                 None => all_versions.retain(|v| v.lts.is_some()),
             };
         }
-        
         if let Some(filter) = &self.filter {
             all_versions.retain(|v| filter.matches(&v.version, config));
         }
-        
         if self.latest {
             all_versions.truncate(1);
         }
-        
         all_versions.sort_by_key(|v| v.version.clone());
         if let SortingMethod::Descending = self.sort {
             all_versions.reverse();
         }
-        
         if all_versions.is_empty() {
             eprintln!("{}", "No versions were found!".red());
             return Ok(());
         }
-        
+
         for version in &all_versions {
             print!("{}", version.version);
             if let Some(lts) = &version.lts {
