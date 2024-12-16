@@ -46,12 +46,12 @@ impl Directories {
 
     pub fn default_base_dir(&self) -> PathBuf {
         let strategy = self.strategy();
-        let modern = strategy.data_dir().join("fnm");
+        let modern = strategy.data_dir().join("nvc");
         if modern.exists() {
             return modern;
         }
 
-        let legacy = strategy.home_dir().join(".fnm");
+        let legacy = strategy.home_dir().join(".nvc");
         if legacy.exists() {
             return legacy;
         }
@@ -59,7 +59,7 @@ impl Directories {
         #[cfg(target_os = "macos")]
         {
             let basedirs = etcetera::base_strategy::Apple::new().expect("Can't get home directory");
-            let legacy = basedirs.data_dir().join("fnm");
+            let legacy = basedirs.data_dir().join("nvc");
             if legacy.exists() {
                 return legacy;
             }
@@ -73,6 +73,6 @@ impl Directories {
         let dir = runtime_dir(basedirs)
             .or_else(|| state_dir(basedirs))
             .unwrap_or_else(|| cache_dir(basedirs));
-        dir.join("fnm_multishells")
+        dir.join("nvc_multishells")
     }
 }

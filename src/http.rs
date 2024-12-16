@@ -6,7 +6,7 @@ use reqwest::{blocking::Client, IntoUrl};
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error(transparent)]
-#[diagnostic(code("fnm::http::error"))]
+#[diagnostic(code("nvc::http::error"))]
 pub struct Error(#[from] reqwest::Error);
 pub type Response = reqwest::blocking::Response;
 
@@ -14,6 +14,6 @@ pub fn get(url: impl IntoUrl) -> Result<Response, Error> {
     Ok(Client::new()
         .get(url)
         // Some sites require a user agent.
-        .header("User-Agent", concat!("fnm ", env!("CARGO_PKG_VERSION")))
+        .header("User-Agent", concat!("nvc ", env!("CARGO_PKG_VERSION")))
         .send()?)
 }
