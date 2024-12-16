@@ -1,11 +1,9 @@
 use crate::arch::Arch;
-use crate::archive;
-use crate::archive::{Error as ExtractError, Extract};
+use crate::archive::{Archive, Error as ExtractError};
 use crate::directory_portal::DirectoryPortal;
 use crate::version::Version;
 use crate::progress::ResponseProgress;
 use log::debug;
-use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -38,44 +36,32 @@ pub enum Error {
 }
 
 #[cfg(unix)]
-fn filename_for_version(version: &Version, arch: &Arch) -> String {
+fn filename_for_version(version: &Version, arch: Arch, ext: &str) -> String {
     format!(
-        "node-{node_ver}-{platform}-{arch}.tar.xz",
+        "node-{node_ver}-{platform}-{arch}.{ext}",
         node_ver = &version,
         platform = crate::system_info::platform_name(),
         arch = arch,
+        ext = ext
     )
 }
-
 #[cfg(windows)]
-fn filename_for_version(version: &Version, arch: &Arch) -> String {
+fn filename_for_version(version: &Version, arch: Arch, ext: &str) -> String {
     format!(
-        "node-{node_ver}-win-{arch}.zip",
+        "node-{node_ver}-win-{arch}.{ext}",
         node_ver = &version,
         arch = arch,
+        ext = ext,
     )
 }
-
-fn download_url(base_url: &Url, version: &Version, arch: &Arch) -> Url {
+fn download_url(base_url: &Url, version: &Version, arch: Arch, ext: &str) -> Url {
     Url::parse(&format!(
         "{}/{}/{}",
         base_url.as_str().trim_end_matches('/'),
         version,
-        filename_for_version(version, arch)
+        filename_for_version(version, arch, ext)
     ))
-    .unwrap()
-}
-
-pub fn extract_archive_into<P: AsRef<Path>>(
-    path: P,
-    response: impl Read,
-) -> Result<(), Error> {
-    #[cfg(unix)]
-    let extractor = archive::TarXz::new(response);
-    #[cfg(windows)]
-    let extractor = archive::zip::Zip::new(response);
-    extractor.extract_into(path)?;
-    Ok(())
+        .unwrap()
 }
 
 /// Install a Node package
@@ -83,7 +69,7 @@ pub fn install_node_dist<P: AsRef<Path>>(
     version: &Version,
     node_dist_mirror: &Url,
     installations_dir: P,
-    arch: &Arch,
+    arch: Arch,
 ) -> Result<(), Error> {
     let installation_dir = PathBuf::from(installations_dir.as_ref()).join(version.v_str());
 
@@ -100,46 +86,51 @@ pub fn install_node_dist<P: AsRef<Path>>(
 
     let portal = DirectoryPortal::new_in(&temp_installations_dir, installation_dir);
 
-    let url = download_url(node_dist_mirror, version, arch);
-    debug!("Going to call for {}", &url);
-    let response = crate::http::get(url.as_str())?;
+    for extract in Archive::supported() {
+        let ext = extract.file_extension();
+        let url = download_url(node_dist_mirror, version, arch, ext);
+        debug!("Going to call for {}", &url);
+        let response = crate::http::get(url.as_str())?;
 
-    if response.status() == 404 {
-        return Err(Error::VersionNotFound {
-            version: version.clone(),
-            arch: arch.clone(),
-        });
+        if !response.status().is_success() {
+            continue;
+        }
+
+        debug!("Extracting response...");
+        let len = response.content_length();
+        let size = match len {
+            Some(l) => HumanBytes(l).to_string(),
+            None => "unknown".into(),
+        };
+
+        println!();
+        println!("Version   : {} ({})", version.v_str(),arch.to_string());
+        println!("Release   : {}", url.as_str());
+        println!("Size      : {}", size);
+        println!();
+        debug!("Extraction completed");
+        extract.extract_archive_into(
+            portal.as_ref(),
+            ResponseProgress::new(response),
+        )?;
+        debug!("Extraction completed");
+        let installed_directory = std::fs::read_dir(&portal)?
+            .next()
+            .ok_or(Error::TarIsEmpty)??;
+        let installed_directory = installed_directory.path();
+
+        let renamed_installation_dir = portal.join("installation");
+        std::fs::rename(installed_directory, renamed_installation_dir)?;
+
+        portal.teleport()?;
+
+        return Ok(());
     }
 
-    debug!("Extracting response...");
-    let len = response.content_length();
-    let size = match len {
-        Some(l) => HumanBytes(l).to_string(),
-        None => "unknown".into(),
-    };
-
-    println!();
-    println!("Version   : {} ({})", version.v_str(),arch.to_string());
-    println!("Release   : {}", url.as_str());
-    println!("Size      : {}", size);
-    println!();
-    extract_archive_into(
-        &portal,
-        ResponseProgress::new(response),
-    )?;
-    debug!("Extraction completed");
-
-    let installed_directory = std::fs::read_dir(&portal)?
-        .next()
-        .ok_or(Error::TarIsEmpty)??;
-    let installed_directory = installed_directory.path();
-
-    let renamed_installation_dir = portal.join("installation");
-    std::fs::rename(installed_directory, renamed_installation_dir)?;
-
-    portal.teleport()?;
-
-    Ok(())
+    Err(Error::VersionNotFound {
+        version: version.clone(),
+        arch,
+    })
 }
 
 #[cfg(test)]
@@ -188,7 +179,8 @@ mod tests {
         let version = Version::parse("12.0.0").unwrap();
         let arch = Arch::X64;
         let node_dist_mirror = Url::parse("https://nodejs.org/dist/").unwrap();
-        install_node_dist(&version, &node_dist_mirror, path, &arch).expect("Can't install Node 12");
+        install_node_dist(&version, &node_dist_mirror, path, arch)
+            .expect("Can't install Node 12");
 
         let mut location_path = path.join(version.v_str()).join("installation");
 

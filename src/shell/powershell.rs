@@ -1,7 +1,7 @@
 use crate::version_file_strategy::VersionFileStrategy;
 
 use super::Shell;
-use indoc::{formatdoc, indoc};
+use indoc::formatdoc;
 use std::path::Path;
 
 #[derive(Debug)]
@@ -26,21 +26,27 @@ impl Shell for PowerShell {
     }
 
     fn use_on_cd(&self, config: &crate::config::NvcConfig) -> anyhow::Result<String> {
+        let version_file_exists_condition = if config.resolve_engines() {
+            "(Test-Path .nvmrc) -Or (Test-Path .node-version) -Or (Test-Path package.json)"
+        } else {
+            "(Test-Path .nvmrc) -Or (Test-Path .node-version)"
+        };
         let autoload_hook = match config.version_file_strategy() {
-            VersionFileStrategy::Local => indoc!(
-                r"
-                    If ((Test-Path .nvmrc) -Or (Test-Path .node-version)) { & nvc use --silent-if-unchanged }
-                "
+            VersionFileStrategy::Local => formatdoc!(
+                r#"
+                    If ({version_file_exists_condition}) {{ & nvc use --silent-if-unchanged }}
+                "#,
+                version_file_exists_condition = version_file_exists_condition,
             ),
-            VersionFileStrategy::Recursive => r"nvc use --silent-if-unchanged",
+            VersionFileStrategy::Recursive => String::from(r"nvc use --silent-if-unchanged"),
         };
         Ok(formatdoc!(
             r#"
-                function global:Set-NvcOnLoad {{ {autoload_hook} }}
-                function global:Set-LocationWithNvc {{ param($path); if ($path -eq $null) {{Set-Location}} else {{Set-Location $path}}; Set-NvcOnLoad }}
-                Set-Alias -Scope global cd_with_nvc Set-LocationWithNvc
-                Set-Alias -Option AllScope -Scope global cd Set-LocationWithNvc
-                Set-NvcOnLoad
+                function global:Set-nvcOnLoad {{ {autoload_hook} }}
+                function global:Set-LocationWithnvc {{ param($path); if ($path -eq $null) {{Set-Location}} else {{Set-Location $path}}; Set-nvcOnLoad }}
+                Set-Alias -Scope global cd_with_nvc Set-LocationWithnvc
+                Set-Alias -Option AllScope -Scope global cd Set-LocationWithnvc
+                Set-nvcOnLoad
             "#,
             autoload_hook = autoload_hook
         ))

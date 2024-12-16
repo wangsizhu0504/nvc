@@ -34,16 +34,19 @@ impl Install {
                 version: v,
                 lts: false,
                 latest: false,
+                ..
             } => Ok(v),
             Self {
                 version: None,
                 lts: true,
                 latest: false,
+                ..
             } => Ok(Some(UserVersion::Full(Version::Lts(LtsType::Latest)))),
             Self {
                 version: None,
                 lts: false,
                 latest: true,
+                ..
             } => Ok(Some(UserVersion::Full(Version::Latest))),
             _ => Err(Error::TooManyVersionsProvided),
         }
@@ -115,9 +118,16 @@ impl Command for Install {
         };
 
         // Automatically swap Apple Silicon to x64 arch for appropriate versions.
-        let safe_arch = get_safe_arch(&config.arch, &version);
+        let safe_arch = get_safe_arch(config.arch, &version);
 
         let version_str = format!("Node {}", &version);
+        outln!(
+            config,
+            Info,
+            "Installing {} ({})",
+            version_str.cyan(),
+            safe_arch.as_str()
+        );
 
         match install_node_dist(
             &version,
@@ -132,18 +142,18 @@ impl Command for Install {
             Ok(()) => {}
         };
 
-        if config.corepack_enabled() {
-            outln!(config, Info, "Enabling corepack for {}", version_str.cyan());
-            enable_corepack(&version, config)?;
-        }
-
-
         if !config.default_version_dir().exists() {
             debug!("Tagging {} as the default version", version.v_str().cyan());
             create_alias(config, "default", &version)?;
         }
+
         if let Some(tagged_alias) = current_version.inferred_alias() {
             tag_alias(config, &version, &tagged_alias)?;
+        }
+
+        if config.corepack_enabled() {
+            outln!(config, Info, "Enabling corepack for {}", version_str.cyan());
+            enable_corepack(&version, config)?;
         }
 
         Ok(())
@@ -158,6 +168,7 @@ fn tag_alias(config: &NvcConfig, matched_version: &Version, alias: &Version) -> 
         matched_version.v_str().cyan()
     );
     create_alias(config, &alias_name, matched_version)?;
+
     Ok(())
 }
 
@@ -190,8 +201,8 @@ pub enum Error {
     },
     #[error("Can't find version in dotfiles. Please provide a version manually to the command.")]
     CantInferVersion,
-    #[error("Having a hard time listing the remote versions: {}", source)]
-    CantListRemoteVersions { source: crate::http::Error },
+    #[error(transparent)]
+    CantListRemoteVersions { source: remote_node_index::Error },
     #[error(
         "Can't find a Node version that matches {} in remote",
         requested_version
@@ -224,8 +235,8 @@ mod tests {
             lts: false,
             latest: false,
         }
-        .apply(&config)
-        .expect("Can't install");
+            .apply(&config)
+            .expect("Can't install");
 
         assert!(config.default_version_dir().exists());
         assert_eq!(
@@ -249,8 +260,8 @@ mod tests {
             lts: false,
             latest: true,
         }
-        .apply(&config)
-        .expect("Can't install");
+            .apply(&config)
+            .expect("Can't install");
 
         let available_versions: Vec<_> =
             remote_node_index::list(&config.node_dist_mirror).expect("Can't get node version list");

@@ -1,8 +1,8 @@
 use crate::arch::Arch;
+use crate::directories::Directories;
 use crate::log_level::LogLevel;
 use crate::path_ext::PathExt;
 use crate::version_file_strategy::VersionFileStrategy;
-use dirs::{data_dir, home_dir};
 use url::Url;
 
 #[derive(clap::Parser, Debug)]
@@ -77,8 +77,12 @@ pub struct NvcConfig {
     corepack_enabled: bool,
 
     /// Resolve `engines.node` field in `package.json` whenever a `.node-version` or `.nvmrc` file is not present.
-    /// Experimental: This feature is subject to change.
+    /// /// This feature is enabled by default. To disable it, provide `--resolve-engines=false`.
+    ///
     /// Note: `engines.node` can be any semver range, with the latest satisfying version being resolved.
+    /// Note 2: If you disable it, please open an issue on GitHub describing _why_ you disabled it.
+    ///         In the future, disabling it might be a no-op, so it's worth knowing any reason to
+    ///
     #[clap(
         long,
         env = "NVC_RESOLVE_ENGINES",
@@ -86,7 +90,9 @@ pub struct NvcConfig {
         hide_env_values = true,
         verbatim_doc_comment
     )]
-    resolve_engines: bool,
+    resolve_engines: Option<Option<bool>>,
+    #[clap(skip)]
+    directories: Directories,
 }
 
 impl Default for NvcConfig {
@@ -99,14 +105,15 @@ impl Default for NvcConfig {
             arch: Arch::default(),
             version_file_strategy: VersionFileStrategy::default(),
             corepack_enabled: false,
-            resolve_engines: false,
+            resolve_engines: None,
+            directories: Directories::default(),
         }
     }
 }
 
 impl NvcConfig {
-    pub fn version_file_strategy(&self) -> &VersionFileStrategy {
-        &self.version_file_strategy
+    pub fn version_file_strategy(&self) -> VersionFileStrategy {
+        self.version_file_strategy
     }
 
     pub fn corepack_enabled(&self) -> bool {
@@ -114,7 +121,7 @@ impl NvcConfig {
     }
 
     pub fn resolve_engines(&self) -> bool {
-        self.resolve_engines
+        self.resolve_engines.flatten().unwrap_or(true)
     }
 
     pub fn multishell_path(&self) -> Option<&std::path::Path> {
@@ -124,35 +131,25 @@ impl NvcConfig {
         }
     }
 
-    pub fn log_level(&self) -> &LogLevel {
-        &self.log_level
+    pub fn log_level(&self) -> LogLevel {
+        self.log_level
     }
 
     pub fn base_dir_with_default(&self) -> std::path::PathBuf {
-        let user_pref = self.base_dir.clone();
-        if let Some(dir) = user_pref {
-            return dir;
+        if let Some(dir) = &self.base_dir {
+            return dir.clone();
         }
 
-        let legacy = home_dir()
-            .map(|dir| dir.join(".nvc"))
-            .filter(|dir| dir.exists());
-
-        let modern = data_dir().map(|dir| dir.join("nvc"));
-
-        if let Some(dir) = legacy {
-            return dir;
-        }
-
-        modern
-            .expect("Can't get data directory")
-            .ensure_exists_silently()
+        self.directories.default_base_dir()
     }
 
     pub fn installations_dir(&self) -> std::path::PathBuf {
         self.base_dir_with_default()
             .join("node-versions")
             .ensure_exists_silently()
+    }
+    pub fn multishell_storage(&self) -> std::path::PathBuf {
+        self.directories.multishell_storage()
     }
 
     pub fn default_version_dir(&self) -> std::path::PathBuf {
