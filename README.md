@@ -52,6 +52,7 @@ curl -o- https://raw.githubusercontent.com/wangsizhu0504/nvc/master/install.sh |
 - Download the matching binary from [GitHub Releases](https://github.com/wangsizhu0504/nvc/releases)
 - Put it on `PATH`
 - Run shell setup
+- Official release tags use the `vX.Y.Z` format and publish release artifacts together with `checksums.txt`
 
 ### Cargo
 
@@ -183,6 +184,7 @@ Test tiers and CI expectations are documented in [Testing Strategy](./docs/testi
 - PR checks cover formatting, linting, fast tests, and real-download smoke validation
 - Heavier multi-platform real-download regressions run on schedule or before release
 - Releases should publish artifacts and checksums together
+- Pushing a `vX.Y.Z` tag triggers automated release validation, multi-platform builds, checksum generation, and GitHub Release publication
 - Breaking behavior changes follow semver and must be documented in the changelog
 
 ## Upstream and Licensing Policy
