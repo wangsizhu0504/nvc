@@ -1,14 +1,18 @@
 use crate::arch::Arch;
 use crate::archive::{Archive, Error as ExtractError};
 use crate::directory_portal::DirectoryPortal;
-use crate::version::Version;
 use crate::progress::ResponseProgress;
+use crate::version::Version;
+use indicatif::ProgressDrawTarget;
 use log::debug;
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::path::PathBuf;
+use tempfile::NamedTempFile;
 use thiserror::Error;
 use url::Url;
-use indicatif::{HumanBytes};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -33,6 +37,28 @@ pub enum Error {
     VersionNotFound { version: Version, arch: Arch },
     #[error("Version already installed at {:?}", path)]
     VersionAlreadyInstalled { path: PathBuf },
+    #[error("Can't fetch checksum manifest for {}: {}", version, source)]
+    ChecksumManifestError {
+        version: Version,
+        source: crate::http::Error,
+    },
+    #[error(
+        "Checksum manifest for {} does not contain an entry for {}",
+        version,
+        filename
+    )]
+    MissingChecksumEntry { version: Version, filename: String },
+    #[error(
+        "Checksum mismatch for {}. Expected {}, got {}",
+        filename,
+        expected,
+        actual
+    )]
+    ChecksumMismatch {
+        filename: String,
+        expected: String,
+        actual: String,
+    },
 }
 
 #[cfg(unix)]
@@ -45,6 +71,7 @@ fn filename_for_version(version: &Version, arch: Arch, ext: &str) -> String {
         ext = ext
     )
 }
+
 #[cfg(windows)]
 fn filename_for_version(version: &Version, arch: Arch, ext: &str) -> String {
     format!(
@@ -54,14 +81,99 @@ fn filename_for_version(version: &Version, arch: Arch, ext: &str) -> String {
         ext = ext,
     )
 }
-fn download_url(base_url: &Url, version: &Version, arch: Arch, ext: &str) -> Url {
+
+fn download_url(base_url: &Url, version: &Version, filename: &str) -> Url {
     Url::parse(&format!(
         "{}/{}/{}",
         base_url.as_str().trim_end_matches('/'),
         version,
-        filename_for_version(version, arch, ext)
+        filename
     ))
-        .unwrap()
+    .unwrap()
+}
+
+fn checksum_manifest_url(base_url: &Url, version: &Version) -> Url {
+    download_url(base_url, version, "SHASUMS256.txt")
+}
+
+fn fetch_checksums(
+    node_dist_mirror: &Url,
+    version: &Version,
+) -> Result<HashMap<String, String>, Error> {
+    let response = crate::http::get(checksum_manifest_url(node_dist_mirror, version).as_str())
+        .and_then(|response| {
+            response
+                .error_for_status()
+                .map_err(crate::http::Error::from)
+        })
+        .map_err(|source| Error::ChecksumManifestError {
+            version: version.clone(),
+            source,
+        })?;
+
+    parse_checksums(BufReader::new(response))
+}
+
+fn parse_checksums<R: Read>(reader: BufReader<R>) -> Result<HashMap<String, String>, Error> {
+    let mut checksums = HashMap::new();
+    for line in reader.lines() {
+        let line = line?;
+        let mut parts = line.split_whitespace();
+        if let (Some(checksum), Some(filename)) = (parts.next(), parts.next()) {
+            checksums.insert(filename.to_string(), checksum.to_string());
+        }
+    }
+
+    Ok(checksums)
+}
+
+fn download_to_temp_file(
+    response: crate::http::Response,
+    show_progress: bool,
+    temp_installations_dir: &Path,
+) -> Result<NamedTempFile, Error> {
+    let mut temp_file = NamedTempFile::new_in(temp_installations_dir)?;
+
+    if show_progress {
+        let mut progress = ResponseProgress::new(response, ProgressDrawTarget::stderr());
+        std::io::copy(&mut progress, temp_file.as_file_mut())?;
+    } else {
+        let mut response = response;
+        std::io::copy(&mut response, temp_file.as_file_mut())?;
+    }
+
+    temp_file.as_file_mut().seek(SeekFrom::Start(0))?;
+    Ok(temp_file)
+}
+
+fn verify_checksum(
+    temp_file: &mut NamedTempFile,
+    filename: &str,
+    expected_checksum: &str,
+) -> Result<(), Error> {
+    let mut hasher = Sha256::new();
+    temp_file.as_file_mut().seek(SeekFrom::Start(0))?;
+
+    let mut buffer = [0_u8; 8 * 1024];
+    loop {
+        let read = temp_file.as_file_mut().read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+
+    let actual_checksum = format!("{:x}", hasher.finalize());
+    if actual_checksum != expected_checksum {
+        return Err(Error::ChecksumMismatch {
+            filename: filename.to_string(),
+            expected: expected_checksum.to_string(),
+            actual: actual_checksum,
+        });
+    }
+
+    temp_file.as_file_mut().seek(SeekFrom::Start(0))?;
+    Ok(())
 }
 
 /// Install a Node package
@@ -70,6 +182,7 @@ pub fn install_node_dist<P: AsRef<Path>>(
     node_dist_mirror: &Url,
     installations_dir: P,
     arch: Arch,
+    show_progress: bool,
 ) -> Result<(), Error> {
     let installation_dir = PathBuf::from(installations_dir.as_ref()).join(version.v_str());
 
@@ -85,10 +198,11 @@ pub fn install_node_dist<P: AsRef<Path>>(
     std::fs::create_dir_all(&temp_installations_dir)?;
 
     let portal = DirectoryPortal::new_in(&temp_installations_dir, installation_dir);
+    let checksums = fetch_checksums(node_dist_mirror, version)?;
 
     for extract in Archive::supported() {
-        let ext = extract.file_extension();
-        let url = download_url(node_dist_mirror, version, arch, ext);
+        let filename = filename_for_version(version, arch, extract.file_extension());
+        let url = download_url(node_dist_mirror, version, &filename);
         debug!("Going to call for {}", &url);
         let response = crate::http::get(url.as_str())?;
 
@@ -96,24 +210,23 @@ pub fn install_node_dist<P: AsRef<Path>>(
             continue;
         }
 
-        debug!("Extracting response...");
-        let len = response.content_length();
-        let size = match len {
-            Some(l) => HumanBytes(l).to_string(),
-            None => "unknown".into(),
-        };
+        let expected_checksum =
+            checksums
+                .get(&filename)
+                .ok_or_else(|| Error::MissingChecksumEntry {
+                    version: version.clone(),
+                    filename: filename.clone(),
+                })?;
 
-        println!();
-        println!("Version   : {} ({})", version.v_str(),arch.to_string());
-        println!("Release   : {}", url.as_str());
-        println!("Size      : {}", size);
-        println!();
+        debug!("Downloading {} for checksum verification", filename);
+        let mut temp_file =
+            download_to_temp_file(response, show_progress, &temp_installations_dir)?;
+        verify_checksum(&mut temp_file, &filename, expected_checksum)?;
+
+        debug!("Extracting verified archive {}", filename);
+        extract.extract_archive_into(portal.as_ref(), temp_file.reopen()?)?;
         debug!("Extraction completed");
-        extract.extract_archive_into(
-            portal.as_ref(),
-            ResponseProgress::new(response),
-        )?;
-        debug!("Extraction completed");
+
         let installed_directory = std::fs::read_dir(&portal)?
             .next()
             .ok_or(Error::TarIsEmpty)??;
@@ -141,7 +254,22 @@ mod tests {
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;
 
+    #[test]
+    fn test_parse_checksums_contains_expected_file() {
+        let manifest = r"
+84e9f3f274a89ff82f9f5890bc009a2d697bfca0312fb3dbc248212844bb7e20  node-v12.0.0-aix-ppc64.tar.gz
+e9669f62977504c9f8b683c044cc13cb31da01a0efd16d5ca7cd264ed6ad5ae5  node-v12.0.0-darwin-x64.tar.xz
+";
+        let checksums = parse_checksums(BufReader::new(manifest.as_bytes())).unwrap();
+
+        assert_eq!(
+            checksums.get("node-v12.0.0-darwin-x64.tar.xz"),
+            Some(&"e9669f62977504c9f8b683c044cc13cb31da01a0efd16d5ca7cd264ed6ad5ae5".to_string())
+        );
+    }
+
     #[test_log::test]
+    #[ignore = "real-download"]
     fn test_installing_node_12() {
         let installations_dir = tempdir().unwrap();
         let node_path = install_in(installations_dir.path()).join("node");
@@ -158,6 +286,7 @@ mod tests {
     }
 
     #[test_log::test]
+    #[ignore = "real-download"]
     fn test_installing_npm() {
         let installations_dir = tempdir().unwrap();
         let bin_dir = install_in(installations_dir.path());
@@ -179,7 +308,7 @@ mod tests {
         let version = Version::parse("12.0.0").unwrap();
         let arch = Arch::X64;
         let node_dist_mirror = Url::parse("https://nodejs.org/dist/").unwrap();
-        install_node_dist(&version, &node_dist_mirror, path, arch)
+        install_node_dist(&version, &node_dist_mirror, path, arch, false)
             .expect("Can't install Node 12");
 
         let mut location_path = path.join(version.v_str()).join("installation");

@@ -1,15 +1,15 @@
 #![cfg(not(unix))]
 
 use crate::shell::Shell;
-use std::ffi::OsStr;
 use log::{debug, warn};
+use std::ffi::OsStr;
 use sysinfo::{ProcessRefreshKind, System, UpdateKind};
-
 
 pub fn infer_shell() -> Option<Box<dyn Shell>> {
     let mut system = System::new();
     let mut current_pid = sysinfo::get_current_pid().ok();
-    system.refresh_processes_specifics(ProcessRefreshKind::new().with_exe(UpdateKind::OnlyIfNotSet));
+    system
+        .refresh_processes_specifics(ProcessRefreshKind::new().with_exe(UpdateKind::OnlyIfNotSet));
     while let Some(pid) = current_pid {
         system.refresh_process(pid);
         if let Some(process) = system.process(pid) {

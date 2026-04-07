@@ -1,12 +1,15 @@
 use super::command::Command;
+use super::r#use::Use;
 use crate::alias::create_alias;
 use crate::arch::get_safe_arch;
 use crate::config::NvcConfig;
 use crate::downloader::{install_node_dist, Error as DownloaderError};
 use crate::lts::LtsType;
 use crate::outln;
+use crate::progress::ProgressConfig;
 use crate::remote_node_index;
 use crate::user_version::UserVersion;
+use crate::user_version_reader::UserVersionReader;
 use crate::version::Version;
 use crate::version_files::get_user_version_for_directory;
 use colored::Colorize;
@@ -25,6 +28,16 @@ pub struct Install {
     /// Install latest version
     #[clap(long, conflicts_with_all = &["version", "lts"])]
     pub latest: bool,
+
+    /// Show an interactive progress bar for the download
+    /// status.
+    #[clap(long, default_value_t)]
+    #[arg(value_enum)]
+    pub progress: ProgressConfig,
+
+    /// Use the installed version immediately after installation
+    #[clap(long)]
+    pub r#use: bool,
 }
 
 impl Install {
@@ -58,6 +71,8 @@ impl Command for Install {
 
     fn apply(self, config: &NvcConfig) -> Result<(), Self::Error> {
         let current_dir = std::env::current_dir().unwrap();
+        let show_progress = self.progress.enabled(config);
+        let use_installed = self.r#use;
 
         let current_version = self
             .version()?
@@ -134,13 +149,14 @@ impl Command for Install {
             &config.node_dist_mirror,
             config.installations_dir(),
             safe_arch,
+            show_progress,
         ) {
             Err(err @ DownloaderError::VersionAlreadyInstalled { .. }) => {
                 outln!(config, Error, "{} {}", "warning:".bold().yellow(), err);
             }
             Err(source) => Err(Error::DownloadError { source })?,
             Ok(()) => {}
-        };
+        }
 
         if !config.default_version_dir().exists() {
             debug!("Tagging {} as the default version", version.v_str().cyan());
@@ -154,6 +170,10 @@ impl Command for Install {
         if config.corepack_enabled() {
             outln!(config, Info, "Enabling corepack for {}", version_str.cyan());
             enable_corepack(&version, config)?;
+        }
+
+        if use_installed {
+            use_installed_version(&version, config)?;
         }
 
         Ok(())
@@ -179,9 +199,34 @@ fn enable_corepack(version: &Version, config: &NvcConfig) -> Result<(), Error> {
     } else {
         corepack_path.join("bin").join("corepack")
     };
-    super::exec::Exec::new_for_version(version, corepack_path.to_str().unwrap(), &["enable"])
-        .apply(config)
-        .map_err(|source| Error::CorepackError { source })?;
+    let status =
+        super::exec::Exec::new_for_version(version, corepack_path.to_str().unwrap(), &["enable"])
+            .run_and_wait_internal(config)
+            .map_err(|source| Error::CorepackError { source })?;
+    if !status.success() {
+        return Err(Error::CorepackExitStatus { status });
+    }
+    Ok(())
+}
+
+fn use_installed_version(version: &Version, config: &NvcConfig) -> Result<(), Error> {
+    if config.multishell_path().is_none() {
+        return Err(Error::UseRequiresNvcEnv);
+    }
+
+    Use {
+        version: Some(UserVersionReader::Direct(UserVersion::Full(
+            version.clone(),
+        ))),
+        install_if_missing: false,
+        silent_if_unchanged: false,
+        info_to_stderr: false,
+        skip_path_check: false,
+    }
+    .apply(config)
+    .map_err(|source| Error::UseError {
+        source: Box::new(source),
+    })?;
     Ok(())
 }
 
@@ -199,6 +244,14 @@ pub enum Error {
         #[from]
         source: super::exec::Error,
     },
+    #[error("`corepack enable` exited unsuccessfully: {:?}", status)]
+    CorepackExitStatus { status: std::process::ExitStatus },
+    #[error(transparent)]
+    UseError {
+        source: Box<<Use as Command>::Error>,
+    },
+    #[error("`nvc install --use` requires `nvc env` to be active in the current shell.\nSet up your shell with the appropriate `nvc env --use-on-cd` command first, or rerun without `--use`.")]
+    UseRequiresNvcEnv,
     #[error("Can't find version in dotfiles. Please provide a version manually to the command.")]
     CantInferVersion,
     #[error(transparent)]
@@ -225,6 +278,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
+    #[ignore = "real-download"]
     fn test_set_default_on_new_installation() {
         let base_dir = tempfile::tempdir().unwrap();
         let config = NvcConfig::default().with_base_dir(Some(base_dir.path().to_path_buf()));
@@ -234,9 +288,11 @@ mod tests {
             version: UserVersion::from_str("12.0.0").ok(),
             lts: false,
             latest: false,
+            progress: ProgressConfig::Never,
+            r#use: false,
         }
-            .apply(&config)
-            .expect("Can't install");
+        .apply(&config)
+        .expect("Can't install");
 
         assert!(config.default_version_dir().exists());
         assert_eq!(
@@ -251,6 +307,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "real-download"]
     fn test_install_latest() {
         let base_dir = tempfile::tempdir().unwrap();
         let config = NvcConfig::default().with_base_dir(Some(base_dir.path().to_path_buf()));
@@ -259,9 +316,11 @@ mod tests {
             version: None,
             lts: false,
             latest: true,
+            progress: ProgressConfig::Never,
+            r#use: false,
         }
-            .apply(&config)
-            .expect("Can't install");
+        .apply(&config)
+        .expect("Can't install");
 
         let available_versions: Vec<_> =
             remote_node_index::list(&config.node_dist_mirror).expect("Can't get node version list");

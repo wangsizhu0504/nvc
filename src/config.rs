@@ -1,11 +1,10 @@
 use crate::arch::Arch;
 use crate::directories::Directories;
 use crate::log_level::LogLevel;
-use crate::path_ext::PathExt;
 use crate::version_file_strategy::VersionFileStrategy;
 use url::Url;
 
-#[derive(clap::Parser, Debug)]
+#[derive(clap::Parser, Debug, Clone)]
 pub struct NvcConfig {
     /// <https://nodejs.org/dist/> mirror
     #[clap(
@@ -77,12 +76,12 @@ pub struct NvcConfig {
     corepack_enabled: bool,
 
     /// Resolve `engines.node` field in `package.json` whenever a `.node-version` or `.nvmrc` file is not present.
-    /// /// This feature is enabled by default. To disable it, provide `--resolve-engines=false`.
+    /// This feature is enabled by default. To disable it, provide `--resolve-engines=false`.
     ///
     /// Note: `engines.node` can be any semver range, with the latest satisfying version being resolved.
     /// Note 2: If you disable it, please open an issue on GitHub describing _why_ you disabled it.
     ///         In the future, disabling it might be a no-op, so it's worth knowing any reason to
-    ///
+    ///         do that.
     #[clap(
         long,
         env = "NVC_RESOLVE_ENGINES",
@@ -90,7 +89,12 @@ pub struct NvcConfig {
         hide_env_values = true,
         verbatim_doc_comment
     )]
+    #[expect(
+        clippy::option_option,
+        reason = "clap Option<Option<T>> supports --x and --x=value syntaxes"
+    )]
     resolve_engines: Option<Option<bool>>,
+
     #[clap(skip)]
     directories: Directories,
 }
@@ -144,12 +148,7 @@ impl NvcConfig {
     }
 
     pub fn installations_dir(&self) -> std::path::PathBuf {
-        self.base_dir_with_default()
-            .join("node-versions")
-            .ensure_exists_silently()
-    }
-    pub fn multishell_storage(&self) -> std::path::PathBuf {
-        self.directories.multishell_storage()
+        self.base_dir_with_default().join("node-versions")
     }
 
     pub fn default_version_dir(&self) -> std::path::PathBuf {
@@ -157,14 +156,33 @@ impl NvcConfig {
     }
 
     pub fn aliases_dir(&self) -> std::path::PathBuf {
-        self.base_dir_with_default()
-            .join("aliases")
-            .ensure_exists_silently()
+        self.base_dir_with_default().join("aliases")
+    }
+
+    pub fn multishell_storage(&self) -> std::path::PathBuf {
+        self.directories.multishell_storage()
+    }
+
+    pub fn global_prefix_dir(&self) -> std::path::PathBuf {
+        self.base_dir_with_default().join("global")
+    }
+
+    pub fn global_bin_dir(&self) -> std::path::PathBuf {
+        if cfg!(windows) {
+            self.global_prefix_dir()
+        } else {
+            self.global_prefix_dir().join("bin")
+        }
     }
 
     #[cfg(test)]
     pub fn with_base_dir(mut self, base_dir: Option<std::path::PathBuf>) -> Self {
         self.base_dir = base_dir;
+        self
+    }
+
+    pub fn with_multishell_path(mut self, multishell_path: std::path::PathBuf) -> Self {
+        self.multishell_path = Some(multishell_path);
         self
     }
 }

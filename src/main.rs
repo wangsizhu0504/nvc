@@ -9,12 +9,14 @@
 mod alias;
 mod arch;
 mod archive;
+mod cache_ops;
 mod choose_version_for_user_input;
 mod cli;
 mod commands;
 mod config;
 mod current_version;
 mod directory_portal;
+mod doctor;
 mod downloader;
 mod fs;
 mod http;
@@ -36,11 +38,11 @@ mod version_files;
 mod log_level;
 mod default_version;
 mod directories;
-mod progress;
 mod pretty_serde;
+mod progress;
 
 fn main() {
     env_logger::init();
-    let value = cli::parse();
+    let value = crate::cli::parse();
     value.subcmd.call(value.config);
 }

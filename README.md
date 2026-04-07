@@ -1,217 +1,207 @@
-<h1 align="center">
-  Node Version Control Tool
-</h1>
+# nvc
 
-> A self-contained version control tool for Node.JS, fork from [fnm](https://github.com/Schniz/fnm)
+`nvc` is a cross-platform Node.js version manager focused on predictable shell integration, reproducible installs, and a self-contained Rust CLI.
 
-## Features
+## Project Status
 
-🌎 Cross-platform support (macOS, Windows, Linux)
+- Status: actively maintained
+- Scope: Node version installation, selection, shell integration, and shared global npm tooling
+- Distribution: release binaries, Cargo install, and shell setup script
+- Maintenance model: independent product with upstream-inspired behavior, not a direct code mirror of `fnm`
 
-✨ Single file, easy installation, instant startup
+## Why nvc
 
-🚀 Built with speed in mind
-
-📂 Works with `.node-version` and `.nvmrc` files
+- Cross-platform support for macOS, Linux, and Windows
+- Single-binary CLI with fast startup
+- Works with `.node-version`, `.nvmrc`, and `package.json` engine resolution
+- Shared global npm prefix for CLI tools installed with `npm install -g`
+- Node downloads are verified against official checksums before activation
+- Shell integration for Bash, Zsh, Fish, PowerShell, and Windows Cmd
 
 ## Installation
 
-### Using a script (macOS/Linux)
+### Recommended
 
-For `bash`, `zsh` and `fish` shells, there's an [automatic installation script](./install.sh).
+The recommended path is a release binary or the install script for macOS/Linux.
 
-First ensure that `curl` and `unzip` are already installed on you operating system. Then execute:
+### Install Script (macOS/Linux)
+
+Requirements:
+
+- `curl`
+- `unzip`
 
 ```sh
 curl -o- https://raw.githubusercontent.com/wangsizhu0504/nvc/master/install.sh | bash
 ```
 
-#### Upgrade
+Optional flags:
 
-On macOS, it is as simple as `brew upgrade nvc`.
-
-On other operating systems, upgrading `nvc` is almost the same as installing it. To prevent duplication in your shell config file add `--skip-shell` to install command.
-
-#### Parameters
-
-`--install-dir`
-
-Set a custom directory for nvc to be installed. The default is `$XDG_DATA_HOME/nvc` (if `$XDG_DATA_HOME` is not defined it falls back to `$HOME/.local/share/nvc` on linux and `$HOME/Library/Application Support/nvc` on MacOS).
-
-`--skip-shell`
-
-Skip appending shell specific loader to shell config file, based on the current user shell, defined in `$SHELL`. e.g. for Bash, `$HOME/.bashrc`. `$HOME/.zshrc` for Zsh. For Fish - `$HOME/.config/fish/conf.d/nvc.fish`
-
-`--force-install`
-
-macOS installations using the installation script are deprecated in favor of the Homebrew formula, but this forces the script to install using it anyway.
+- `--install-dir`: install into a custom directory
+- `--skip-shell`: do not modify shell startup files
+- `--force-install`: force script install on macOS even if Homebrew is preferred
 
 Example:
 
 ```sh
-curl -o- https://raw.githubusercontent.com/wangsizhu0504/nvc/master/install.sh | bash -s -- --install-dir "./.nvc" --skip-shell
+curl -o- https://raw.githubusercontent.com/wangsizhu0504/nvc/master/install.sh | bash -s -- --install-dir "$HOME/.nvc" --skip-shell
 ```
 
-### Manually
+### Release Binary
 
-#### Using Homebrew (macOS/Linux)
+- Download the matching binary from [GitHub Releases](https://github.com/wangsizhu0504/nvc/releases)
+- Put it on `PATH`
+- Run shell setup
 
-```sh
-brew install nvc
-```
-
-Then, [set up your shell for nvc](#shell-setup)
-
-#### Using Cargo (Linux/macOS/Windows)
+### Cargo
 
 ```sh
 cargo install nvc
 ```
 
-Then, [set up your shell for nvc](#shell-setup)
-
-#### Using a release binary (Linux/macOS/Windows)
-
-- Download the [latest release binary](https://github.com/wangsizhu0504/nvc/releases) for your system
-- Make it available globally on `PATH` environment variable
-- [Set up your shell for nvc](#shell-setup)
-
-### Removing
-
-To remove nvc (😢), just delete the `.nvc` folder in your home directory. You should also edit your shell configuration to remove any references to nvc (ie. read [Shell Setup](#shell-setup), and do the opposite).
-
-## Completions
-
-nvc ships its completions with the binary:
+### Homebrew
 
 ```sh
-nvc completions --shell <SHELL>
+brew install nvc
 ```
 
-Where `<SHELL>` can be one of the supported shells:
+## Shell Setup
 
-- `bash`
-- `zsh`
-- `fish`
-- `power-shell`
+`nvc` works by exporting environment variables and adjusting `PATH` with the output of `nvc env`.
 
-Please follow your shell instructions to install them.
+To enable automatic switching on directory change, use `--use-on-cd`.
 
-### Shell Setup
-
-Environment variables need to be setup before you can start using nvc.
-This is done by evaluating the output of `nvc env`.
-To automatically run `nvc use` when a directory contains a `.node-version` or `.nvmrc` file, add the `--use-on-cd` option to your shell setup.
-
-Adding a `.node-version` to your project is as simple as:
-
-```bash
-$ node --version
-v14.18.3
-$ node --version > .node-version
-```
-
-Check out the following guides for the shell you use:
-
-#### Bash
-
-Add the following to your `.bashrc` profile:
+### Bash
 
 ```bash
 eval "$(nvc env --use-on-cd)"
 ```
 
-#### Zsh
-
-Add the following to your `.zshrc` profile:
+### Zsh
 
 ```zsh
 eval "$(nvc env --use-on-cd)"
 ```
 
-#### Fish shell
-
-Create `~/.config/fish/conf.d/nvc.fish` add this line to it:
+### Fish
 
 ```fish
 nvc env --use-on-cd | source
 ```
 
-#### PowerShell
-
-Add the following to the end of your profile file:
+### PowerShell
 
 ```powershell
 nvc env --use-on-cd | Out-String | Invoke-Expression
 ```
 
-- For macOS/Linux, the profile is located at `~/.config/powershell/Microsoft.PowerShell_profile.ps1`
-- On Windows to edit your profile you can run this in a PowerShell
-  ```powershell
-  notepad $profile
-  ```
-#### Windows Command Prompt aka Batch aka WinCMD
-
-nvc is also supported but is not entirely covered. [You can set up a startup script](https://superuser.com/a/144348) and append the following line:
+### Windows Cmd
 
 ```batch
 FOR /f "tokens=*" %i IN ('nvc env --use-on-cd') DO CALL %i
 ```
 
-⚠️ If you get the error `i was unexpected at this time`, please make a .cmd file as suggested by the first step in the Usage with Cmder secton add it's path to the `AutoRun` registry key.
+## Shared Global Packages
 
-#### Usage with Cmder
+`nvc` exports a shared `NPM_CONFIG_PREFIX`, so packages installed with `npm install -g` are available across installed Node versions.
 
-Usage is very similar to the normal WinCMD install, apart for a few tweaks to allow being called from the cmder startup script. The example **assumes** that the `CMDER_ROOT` environment variable is **set** to the **root directory** of your Cmder installation.
-Then you can do something like this:
+Behavior:
 
-- Make a .cmd file to invoke it
+- Shared prefix directory: `<NVC_DIR>/global`
+- If `NVC_DIR` is not set: `<default nvc base dir>/global`
+- Global binaries remain available after `nvc use` and `nvc exec`
 
-```batch
-:: %CMDER_ROOT%\bin\nvc_init.cmd
-@echo off
-FOR /f "tokens=*" %%z IN ('nvc env --use-on-cd') DO CALL %%z
-```
+Operational helpers:
 
-- Add it to the startup script
+- `nvc doctor` inspects shell setup, active version state, `PATH`, and shared global prefix health
+- `nvc cache dir|size|clear` manages download cache state
+- `nvc prune` removes stale download artifacts, broken aliases, and stale multishell links
 
-```batch
-:: %CMDER_ROOT%\config\user_profile.cmd
-call "%CMDER_ROOT%\bin\nvc_init.cmd"
-```
+Good fits:
 
-You can replace `%CMDER_ROOT%` with any other convenient path too.
+- `typescript`
+- `eslint`
+- `pnpm`
+- `yarn`
+- other CLI-focused npm tools
 
-## Usage
+Known limit:
 
-[For extended usage documentation, see Fnm's command](https://github.com/Schniz/fnm/blob/master/docs/commands.md)
+- Packages with native addons or strong Node-version coupling may need reinstall for a specific runtime
 
+## Compatibility
 
-### Developing:
+Default support target:
+
+- macOS
+- Linux
+- Windows
+
+Shell support target:
+
+- Bash
+- Zsh
+- Fish
+- PowerShell
+- Windows Cmd
+
+## Troubleshooting
+
+Common checks:
+
+- Run `nvc doctor` for a structured health check of shell setup, PATH, and shared global prefix state
+- Run `nvc env` in your shell startup file
+- Confirm `nvc env --json` returns the expected `NVC_DIR` and `NVC_MULTISHELL_PATH`
+- Verify the active shell session includes the `nvc` bin path on `PATH`
+- Re-run `nvc install <version>` if a download was interrupted
+- If `nvc install --use` fails, source `nvc env` first and retry from an initialized shell session
+- If a mirror serves incomplete or modified artifacts, `nvc install` will stop on checksum verification instead of activating the archive
+
+## Cache and Cleanup
+
+`nvc` now includes built-in maintenance commands for cache visibility and cleanup.
+
+- `nvc cache dir`: print the downloads cache directory
+- `nvc cache size --bytes`: show the current downloads cache size
+- `nvc cache clear`: clear the downloads cache
+- `nvc prune --dry-run`: preview stale state cleanup
+- `nvc prune --all`: remove stale downloads, broken aliases, and stale multishell links
+
+## Development
 
 ```sh
-# Install Rust
 git clone https://github.com/wangsizhu0504/nvc.git
-cd nvc/
+cd nvc
 cargo build
-```
-
-### Running Binary:
-
-```sh
-cargo run -- --help # Will behave like `nvc --help`
-```
-
-### Running Tests:
-
-```sh
 cargo test
 ```
 
-## Thanks
+Test tiers and CI expectations are documented in [Testing Strategy](./docs/testing.md).
 
-This project is based on [Fnm](https://github.com/Schniz/fnm).
+## Release and Support Policy
+
+- PR checks cover formatting, linting, fast tests, and real-download smoke validation
+- Heavier multi-platform real-download regressions run on schedule or before release
+- Releases should publish artifacts and checksums together
+- Breaking behavior changes follow semver and must be documented in the changelog
+
+## Upstream and Licensing Policy
+
+`nvc` is an independent project that references upstream `fnm` behavior selectively.
+
+Rules:
+
+- Upstream behavior may be used as implementation reference
+- Upstream code is not merged blindly
+- Licensing and fork boundaries are documented explicitly
+- Any future upstream alignment must be reviewed against project policy before adoption
+
+See [Maintainer Policy](./docs/maintainer-policy.md), [Support Policy](./docs/support-policy.md), and [Release Checklist](./docs/release-checklist.md).
+
+## Acknowledgements
+
+The project originated as a fork-informed effort inspired by `fnm`, but is maintained as its own product.
 
 ## License
 
-[MIT](./LICENSE) License &copy; 2024-PRESENT [Kriszu](https://github.com/wangsizhu0504)
+[MIT](./LICENSE) License © 2024-PRESENT [Kriszu](https://github.com/wangsizhu0504)

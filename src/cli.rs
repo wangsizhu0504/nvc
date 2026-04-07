@@ -16,7 +16,6 @@ Note:
   To remove nvc, just delete the `.nvc` folder in your home directory. You should also edit your shell configuration to remove any references to nvc
   ";
 
-
 #[derive(clap::Parser, Debug)]
 pub enum SubCommand {
     /// List all remote Node.js versions
@@ -49,6 +48,14 @@ pub enum SubCommand {
     /// Print shell completions to stdout
     #[clap(name = "completions", bin_name = "completions")]
     Completions(commands::completions::Completions),
+
+    /// Inspect and manage nvc download cache
+    #[clap(name = "cache", bin_name = "cache")]
+    Cache(commands::cache::Cache),
+
+    /// Diagnose the current nvc environment and shell integration
+    #[clap(name = "doctor", bin_name = "doctor")]
+    Doctor(commands::doctor::Doctor),
 
     /// Alias a version to a common name
     #[clap(name = "alias", bin_name = "alias")]
@@ -83,6 +90,10 @@ pub enum SubCommand {
     /// > is pointing to, along with the other aliases that point to the same version.
     #[clap(name = "uninstall", bin_name = "uninstall", visible_aliases = &["uni"])]
     Uninstall(commands::uninstall::Uninstall),
+
+    /// Clean stale nvc state such as downloads, broken aliases, and stale multishell links
+    #[clap(name = "prune", bin_name = "prune")]
+    Prune(commands::prune::Prune),
 }
 
 impl SubCommand {
@@ -94,12 +105,15 @@ impl SubCommand {
             Self::Env(cmd) => cmd.call(config),
             Self::Use(cmd) => cmd.call(config),
             Self::Completions(cmd) => cmd.call(config),
+            Self::Cache(cmd) => cmd.call(config),
+            Self::Doctor(cmd) => cmd.call(config),
             Self::Alias(cmd) => cmd.call(config),
             Self::Default(cmd) => cmd.call(config),
             Self::Current(cmd) => cmd.call(config),
             Self::Exec(cmd) => cmd.call(config),
             Self::Uninstall(cmd) => cmd.call(config),
             Self::Unalias(cmd) => cmd.call(config),
+            Self::Prune(cmd) => cmd.call(config),
         }
     }
 }

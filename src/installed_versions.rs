@@ -3,13 +3,16 @@ use std::path::Path;
 use thiserror::Error;
 
 pub fn list<P: AsRef<Path>>(installations_dir: P) -> Result<Vec<Version>, Error> {
+    if !installations_dir.as_ref().exists() {
+        return Ok(vec![]);
+    }
     let mut vec = vec![];
     for result_entry in installations_dir.as_ref().read_dir()? {
         let entry = result_entry?;
         if entry
             .file_name()
             .to_str()
-            .map_or(false, |s| s.starts_with('.'))
+            .is_some_and(|s| s.starts_with('.'))
         {
             continue;
         }

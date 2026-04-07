@@ -11,30 +11,39 @@ pub fn current_version(config: &NvcConfig) -> Result<Option<Version>, Error> {
         return Ok(Some(Version::Bypassed));
     }
 
-    if let Ok(resolved_path) = std::fs::canonicalize(multishell_path) {
-        let installation_path = resolved_path
-            .parent()
-            .expect("multishell path can't be in the root");
-        let file_name = installation_path
-            .file_name()
-            .expect("Can't get filename")
-            .to_str()
-            .expect("Invalid OS string");
-        let version = Version::parse(file_name).map_err(|source| Error::VersionError {
-            source,
-            version: file_name.to_string(),
+    let Ok(resolved_path) = std::fs::canonicalize(multishell_path) else {
+        return Ok(None);
+    };
+
+    let installation_path = resolved_path
+        .parent()
+        .ok_or_else(|| Error::InvalidMultishellPath {
+            path: resolved_path.clone(),
         })?;
-        Ok(Some(version))
-    } else {
-        Ok(None)
-    }
+    let file_name = installation_path
+        .file_name()
+        .ok_or_else(|| Error::InvalidMultishellPath {
+            path: resolved_path.clone(),
+        })?
+        .to_str()
+        .ok_or_else(|| Error::InvalidMultishellPath {
+            path: resolved_path.clone(),
+        })?;
+    let version = Version::parse(file_name).map_err(|source| Error::VersionError {
+        source,
+        version: file_name.to_string(),
+    })?;
+
+    Ok(Some(version))
 }
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("`nvc env` was not applied in this context.\nCan't find nvc's environment variables")]
     EnvNotApplied,
-    #[error("Can't read the version as a valid semver")]
+    #[error("Can't read the active Node version from multishell path {}", path.display())]
+    InvalidMultishellPath { path: std::path::PathBuf },
+    #[error("Can't read the version as a valid semver from {version}")]
     VersionError {
         source: node_semver::SemverError,
         version: String,

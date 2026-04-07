@@ -1,6 +1,6 @@
 use crate::version::Version;
 
-#[derive(Clone,Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Arch {
     X86,
     X64,

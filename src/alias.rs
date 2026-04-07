@@ -23,6 +23,9 @@ pub fn create_alias(
 }
 
 pub fn list_aliases(config: &NvcConfig) -> std::io::Result<Vec<StoredAlias>> {
+    if !config.aliases_dir().exists() {
+        return Ok(vec![]);
+    }
     let vec: Vec<_> = std::fs::read_dir(config.aliases_dir())?
         .filter_map(Result::ok)
         .filter_map(|x| TryInto::<StoredAlias>::try_into(x.path().as_path()).ok())

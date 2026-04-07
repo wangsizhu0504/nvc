@@ -11,16 +11,10 @@ impl Shell for WindowsCmd {
     }
 
     fn path(&self, path: &Path) -> anyhow::Result<String> {
-        let current_path =
-            std::env::var_os("path").ok_or_else(|| anyhow::anyhow!("Can't read PATH env var"))?;
-        let mut split_paths: Vec<_> = std::env::split_paths(&current_path).collect();
-        split_paths.insert(0, path.to_path_buf());
-        let new_path = std::env::join_paths(split_paths)
-            .map_err(|err| anyhow::anyhow!("Can't join paths: {}", err))?;
-        let new_path = new_path
+        let new_path = path
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Can't convert path to string"))?;
-        Ok(format!("SET PATH={new_path}"))
+        Ok(format!("SET PATH={new_path};%PATH%"))
     }
 
     fn set_env_var(&self, name: &str, value: &str) -> String {

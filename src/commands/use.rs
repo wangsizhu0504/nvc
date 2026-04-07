@@ -14,17 +14,29 @@ use colored::Colorize;
 use std::path::Path;
 use thiserror::Error;
 
+const README_SHELL_SETUP_URL: &str = "https://github.com/wangsizhu0504/nvc#shell-setup";
+const README_URL: &str = "https://github.com/wangsizhu0504/nvc";
+
 #[derive(clap::Parser, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Use {
-    version: Option<UserVersionReader>,
+    pub version: Option<UserVersionReader>,
     /// Install the version if it isn't installed yet
     #[clap(long)]
-    install_if_missing: bool,
+    pub install_if_missing: bool,
 
     /// Don't output a message identifying the version being used
     /// if it will not change due to execution of this command
     #[clap(long)]
-    silent_if_unchanged: bool,
+    pub silent_if_unchanged: bool,
+
+    /// Print informational output to stderr (used internally by `nvc env`)
+    #[clap(skip)]
+    pub info_to_stderr: bool,
+
+    /// Skip the PATH warning check (used internally by `nvc env`)
+    #[clap(skip)]
+    pub skip_path_check: bool,
 }
 
 impl Command for Use {
@@ -32,7 +44,9 @@ impl Command for Use {
 
     fn apply(self, config: &NvcConfig) -> Result<(), Self::Error> {
         let multishell_path = config.multishell_path().ok_or(Error::NvcEnvWasNotSourced)?;
-        warn_if_multishell_path_not_in_path_env_var(multishell_path, config);
+        if !self.skip_path_check {
+            warn_if_multishell_path_not_in_path_env_var(multishell_path, config);
+        }
 
         let all_versions = installed_versions::list(config.installations_dir())
             .map_err(|source| Error::VersionListingError { source })?;
@@ -48,6 +62,7 @@ impl Command for Use {
                 VersionFileStrategy::Recursive => InferVersionError::Recursive,
             })
             .map_err(|source| Error::CantInferVersion { source });
+
         // Swallow the missing version error if `silent_if_unchanged` was provided
         let requested_version = match (self.silent_if_unchanged, requested_version) {
             (true, Err(_)) => return Ok(()),
@@ -95,7 +110,11 @@ impl Command for Use {
         };
 
         if !self.silent_if_unchanged || will_version_change(&version_path, config) {
-            outln!(config, Info, "{}", message);
+            if self.info_to_stderr {
+                outln!(config, Error, "{}", message);
+            } else {
+                outln!(config, Info, "{}", message);
+            }
         }
 
         if let Some(multishells_path) = multishell_path.parent() {
@@ -143,6 +162,8 @@ fn install_new_version(
         version: Some(UserVersionReader::Direct(requested_version)),
         install_if_missing: true,
         silent_if_unchanged: false,
+        info_to_stderr: false,
+        skip_path_check: false,
     }
     .apply(config)?;
 
@@ -171,11 +192,11 @@ fn should_install_interactively(requested_version: &UserVersion) -> bool {
     }
 
     let error_message = format!(
-        "Can't find an installed Node version matching {}.",
+        "nvc can't find an installed Node version matching {}.",
         requested_version.to_string().italic()
     );
     eprintln!("{}", error_message.red());
-    let do_you_want = format!("Do you want to install it? {} [y/n]:", "answer".bold());
+    let do_you_want = format!("Do you want to install it? {} [y/N]:", "answer".bold());
     eprint!("{} ", do_you_want.yellow());
     std::io::stdout().flush().unwrap();
     let mut s = String::new();
@@ -196,8 +217,10 @@ fn warn_if_multishell_path_not_in_path_env_var(
         } else {
             multishell_path.to_path_buf()
         };
+
         let fixed_path = bin_path.to_str().and_then(shell::maybe_fix_windows_path);
         let fixed_path = fixed_path.as_deref();
+
         for path in std::env::split_paths(&path_var) {
             if bin_path == path || fixed_path == path.to_str() {
                 return;
@@ -210,8 +233,11 @@ fn warn_if_multishell_path_not_in_path_env_var(
         "{} {}\n{}\n{}",
         "warning:".yellow().bold(),
         "The current Node.js path is not on your PATH environment variable.".yellow(),
-        "You should setup your shell profile to evaluate `nvc env`, see https://github.com/Schniz/nvc#shell-setup on how to do this".yellow(),
-        "Check out our documentation for more information: https://nvc.vercel.app".yellow()
+        format!(
+            "You should setup your shell profile to evaluate `nvc env`, see {README_SHELL_SETUP_URL} on how to do this"
+        )
+        .yellow(),
+        format!("Check out the README for more information: {README_URL}").yellow()
     );
 }
 
@@ -233,8 +259,8 @@ pub enum Error {
     #[error(
         "{}\n{}\n{}",
         "We can't find the necessary environment variables to replace the Node version.",
-        "You should setup your shell profile to evaluate `nvc env`, see https://github.com/Schniz/nvc#shell-setup on how to do this",
-        "Check out our documentation for more information: https://nvc.vercel.app"
+        "You should setup your shell profile to evaluate `nvc env`, see https://github.com/wangsizhu0504/nvc#shell-setup on how to do this",
+        "Check out the README for more information: https://github.com/wangsizhu0504/nvc"
     )]
     NvcEnvWasNotSourced,
     #[error("Can't create the multishell directory: {}", path.display())]

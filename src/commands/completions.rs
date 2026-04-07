@@ -3,7 +3,7 @@ use crate::config::NvcConfig;
 use crate::shell::{infer_shell, Shell};
 use crate::{cli::Cli, shell::Shells};
 use clap::{CommandFactory, Parser, ValueEnum};
-use clap_complete::{Generator, Shell as ClapShell};
+use clap_complete::{generate, Shell as ClapShell};
 use thiserror::Error;
 
 #[derive(Parser, Debug)]
@@ -21,12 +21,12 @@ impl Command for Completions {
         let shell: Box<dyn Shell> = self
             .shell
             .map(Into::into)
-            .or_else(|| infer_shell().map(Into::into))
+            .or_else(infer_shell)
             .ok_or(Error::CantInferShell)?;
         let shell: ClapShell = shell.into();
         let mut app = Cli::command();
         app.build();
-        shell.generate(&app, &mut stdio);
+        generate(shell, &mut app, "nvc", &mut stdio);
         Ok(())
     }
 }

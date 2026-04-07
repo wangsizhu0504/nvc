@@ -1,4 +1,4 @@
-name: Rust
+name: CI
 
 on:
   pull_request:
@@ -11,9 +11,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build_release:
+  quality:
+    runs-on: ubuntu-latest
+    name: "Quality Baseline"
+    steps:
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v3
+      - name: Run fast quality gate
+        run: bash ./scripts/test-fast.sh
+
+  real_download_smoke:
+    runs-on: ubuntu-latest
+    name: "Real Download Smoke"
+    needs: quality
+    steps:
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@v3
+      - name: Run real-download smoke tests
+        run: bash ./scripts/test-real-download-smoke.sh
+
+  build_release_windows:
     runs-on: windows-latest
     name: "Release build for Windows"
+    needs: [quality, real_download_smoke]
     steps:
       - uses: hecrj/setup-rust-action@v1
         with:
@@ -29,9 +56,10 @@ jobs:
           name: nvc-windows
           path: target/release/nvc.exe
 
-  build_macos_release:
+  build_release_macos:
     runs-on: macos-latest
     name: "Release build for macOS"
+    needs: [quality, real_download_smoke]
     steps:
       - uses: hecrj/setup-rust-action@v1
         with:
@@ -51,9 +79,10 @@ jobs:
           name: nvc-macos
           path: target/release/nvc
 
-  build_static_linux_binary:
+  build_release_linux:
     name: "Build static Linux binary"
     runs-on: ubuntu-latest
+    needs: [quality, real_download_smoke]
     steps:
       - uses: hecrj/setup-rust-action@v1
         with:

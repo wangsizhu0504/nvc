@@ -9,16 +9,10 @@ pub struct PowerShell;
 
 impl Shell for PowerShell {
     fn path(&self, path: &Path) -> anyhow::Result<String> {
-        let current_path =
-            std::env::var_os("PATH").ok_or_else(|| anyhow::anyhow!("Can't read PATH env var"))?;
-        let mut split_paths: Vec<_> = std::env::split_paths(&current_path).collect();
-        split_paths.insert(0, path.to_path_buf());
-        let new_path = std::env::join_paths(split_paths)
-            .map_err(|source| anyhow::anyhow!("Can't join paths: {}", source))?;
-        let new_path = new_path
+        let new_path = path
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Can't read PATH"))?;
-        Ok(self.set_env_var("PATH", new_path))
+        Ok(format!(r#"$env:PATH = "{new_path};$env:PATH""#))
     }
 
     fn set_env_var(&self, name: &str, value: &str) -> String {
@@ -33,21 +27,21 @@ impl Shell for PowerShell {
         };
         let autoload_hook = match config.version_file_strategy() {
             VersionFileStrategy::Local => formatdoc!(
-                r#"
+                r"
                     If ({version_file_exists_condition}) {{ & nvc use --silent-if-unchanged }}
-                "#,
+                ",
                 version_file_exists_condition = version_file_exists_condition,
             ),
             VersionFileStrategy::Recursive => String::from(r"nvc use --silent-if-unchanged"),
         };
         Ok(formatdoc!(
-            r#"
+            r"
                 function global:Set-nvcOnLoad {{ {autoload_hook} }}
                 function global:Set-LocationWithnvc {{ param($path); if ($path -eq $null) {{Set-Location}} else {{Set-Location $path}}; Set-nvcOnLoad }}
                 Set-Alias -Scope global cd_with_nvc Set-LocationWithnvc
                 Set-Alias -Option AllScope -Scope global cd Set-LocationWithnvc
                 Set-nvcOnLoad
-            "#,
+            ",
             autoload_hook = autoload_hook
         ))
     }
