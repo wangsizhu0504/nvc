@@ -52,7 +52,8 @@ curl -o- https://raw.githubusercontent.com/wangsizhu0504/nvc/master/install.sh |
 - Download the matching binary from [GitHub Releases](https://github.com/wangsizhu0504/nvc/releases)
 - Put it on `PATH`
 - Run shell setup
-- Official release tags use the `vX.Y.Z` format and publish release artifacts together with `checksums.txt`
+- Official release tags use the `vX.Y.Z` format
+- Pushing a release tag runs validation first, then builds release binaries, generates `checksums.txt`, and publishes the GitHub Release automatically
 
 ### Cargo
 
@@ -174,7 +175,11 @@ Common checks:
 git clone https://github.com/wangsizhu0504/nvc.git
 cd nvc
 cargo build
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 cargo test
+cargo test --bin nvc remote_node_index::tests::test_list -- --ignored --exact --nocapture
+cargo test --test shared_global_prefix exec_uses_shared_prefix_and_global_packages_are_shared -- --ignored --exact --nocapture
 ```
 
 Test tiers and CI expectations are documented in [Testing Strategy](./docs/testing.md).
@@ -184,7 +189,7 @@ Test tiers and CI expectations are documented in [Testing Strategy](./docs/testi
 - PR checks cover formatting, linting, fast tests, and real-download smoke validation
 - Heavier multi-platform real-download regressions run on schedule or before release
 - Releases should publish artifacts and checksums together
-- Pushing a `vX.Y.Z` tag triggers automated release validation, multi-platform builds, checksum generation, and GitHub Release publication
+- Pushing a `vX.Y.Z` tag triggers automated validation, multi-platform builds, checksum generation, and GitHub Release publication after the build jobs succeed
 - Breaking behavior changes follow semver and must be documented in the changelog
 
 ## Upstream and Licensing Policy

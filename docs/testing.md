@@ -19,8 +19,11 @@ This repository keeps real Node downloads in test coverage, but it does not run 
 ## Commands
 
 ```sh
-bash ./scripts/test-fast.sh
-bash ./scripts/test-real-download-smoke.sh
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+cargo test --bin nvc remote_node_index::tests::test_list -- --ignored --exact --nocapture
+cargo test --test shared_global_prefix exec_uses_shared_prefix_and_global_packages_are_shared -- --ignored --exact --nocapture
 ```
 
 ## Rules

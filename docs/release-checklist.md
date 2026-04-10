@@ -17,7 +17,7 @@
 - [ ] Linux artifact
 - [ ] Windows artifact
 - [ ] checksums published with artifacts
-- [ ] `bash ./scripts/generate-checksums.sh <artifact...>` output saved and attached
+- [ ] `bash ./scripts/generate-checksums.sh <artifact...>` output saved as `checksums.txt` and attached
 - [ ] automated `Release` workflow completed successfully
 
 ## Final Review

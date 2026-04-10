@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing git tag to release, for example v0.2.0"
+        description: 'Existing git tag to release, for example v0.2.0'
         required: true
         type: string
 
@@ -77,9 +77,14 @@ jobs:
         with:
           ref: refs/tags/${{ needs.prepare.outputs.release_tag }}
       - name: Run fast quality gate
-        run: bash ./scripts/test-fast.sh
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
       - name: Run real-download smoke tests
-        run: bash ./scripts/test-real-download-smoke.sh
+        run: |
+          cargo test --bin nvc remote_node_index::tests::test_list -- --ignored --exact --nocapture
+          cargo test --test shared_global_prefix exec_uses_shared_prefix_and_global_packages_are_shared -- --ignored --exact --nocapture
 
   build_windows:
     runs-on: windows-latest
@@ -95,7 +100,7 @@ jobs:
       - name: Build release binary
         run: cargo build --release
         env:
-          RUSTFLAGS: "-C target-feature=+crt-static"
+          RUSTFLAGS: '-C target-feature=+crt-static'
       - name: Prepare release artifact
         shell: bash
         run: |
@@ -122,7 +127,7 @@ jobs:
       - name: Build release binary
         run: cargo build --release
         env:
-          LZMA_API_STATIC: "true"
+          LZMA_API_STATIC: 'true'
       - name: Strip binary
         run: strip target/release/nvc
       - name: Prepare release artifact

@@ -22,7 +22,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: actions/checkout@v3
       - name: Run fast quality gate
-        run: bash ./scripts/test-fast.sh
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
 
   real_download_smoke:
     runs-on: ubuntu-latest
@@ -35,7 +38,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: actions/checkout@v3
       - name: Run real-download smoke tests
-        run: bash ./scripts/test-real-download-smoke.sh
+        run: |
+          cargo test --bin nvc remote_node_index::tests::test_list -- --ignored --exact --nocapture
+          cargo test --test shared_global_prefix exec_uses_shared_prefix_and_global_packages_are_shared -- --ignored --exact --nocapture
 
   build_release_windows:
     runs-on: windows-latest
