@@ -147,6 +147,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [prepare, quality]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.prepare.outputs.release_tag }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
@@ -161,9 +164,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends musl-tools
-      - uses: actions/checkout@v4
-        with:
-          ref: refs/tags/${{ needs.prepare.outputs.release_tag }}
       - name: Build release binary
         run: cargo build --release --target x86_64-unknown-linux-musl
       - name: Strip binary
