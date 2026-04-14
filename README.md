@@ -1,59 +1,48 @@
 # nvc
 
-`nvc` is a cross-platform Node.js version manager focused on predictable shell integration, reproducible installs, and a self-contained Rust CLI.
+[简体中文](./README.zh-CN.md)
 
-## Project Status
+`nvc` is a cross-platform Node.js version manager focused on predictable shell integration and reproducible installs.
 
-- Status: actively maintained
-- Scope: Node version installation, selection, shell integration, and shared global npm tooling
-- Distribution: release binaries, Cargo install, and shell setup script
-- Maintenance model: independent product with upstream-inspired behavior, not a direct code mirror of `fnm`
+## Overview
 
-## Why nvc
+- **Status**: Actively maintained
+- **Positioning**: Independent project inspired by `fnm` behavior, not a direct code mirror
+- **Platforms**: macOS, Linux, Windows
+- **Shells**: Bash, Zsh, Fish, PowerShell, Windows Cmd
 
-- Cross-platform support for macOS, Linux, and Windows
-- Single-binary CLI with fast startup
-- Works with `.node-version`, `.nvmrc`, and `package.json` engine resolution
-- Shared global npm prefix for CLI tools installed with `npm install -g`
-- Node downloads are verified against official checksums before activation
-- Shell integration for Bash, Zsh, Fish, PowerShell, and Windows Cmd
+## Features
+
+- Fast single-binary CLI
+- Supports `.node-version`, `.nvmrc`, and `package.json` engine resolution
+- Shared global npm prefix across installed Node versions
+- Checksum verification before activating downloaded Node archives
+- Built-in maintenance commands (`doctor`, `cache`, `prune`)
 
 ## Installation
 
-### Recommended
-
-The recommended path is a release binary or the install script for macOS/Linux.
-
 ### Install Script (macOS/Linux)
-
-Requirements:
-
-- `curl`
-- `unzip`
 
 ```sh
 curl -o- https://raw.githubusercontent.com/wangsizhu0504/nvc/master/install.sh | bash
 ```
 
-Optional flags:
+Dependencies:
 
-- `--install-dir`: install into a custom directory
-- `--skip-shell`: do not modify shell startup files
-- `--force-install`: force script install on macOS even if Homebrew is preferred
+- Linux: `curl`, `unzip`
+- macOS (default path): `curl`, `unzip`, `brew` (script uses Homebrew by default)
+- macOS with `--force-install`: `curl`, `unzip`
 
-Example:
+Common script flags:
 
-```sh
-curl -o- https://raw.githubusercontent.com/wangsizhu0504/nvc/master/install.sh | bash -s -- --install-dir "$HOME/.nvc" --skip-shell
-```
+- `--install-dir <path>`
+- `--skip-shell`
+- `--force-install` (alias: `--force-no-brew`)
+- `--release <tag|latest>`
 
 ### Release Binary
 
-- Download the matching binary from [GitHub Releases](https://github.com/wangsizhu0504/nvc/releases)
-- Put it on `PATH`
-- Run shell setup
-- Official release tags use the `vX.Y.Z` format
-- Pushing a release tag runs validation first, then builds release binaries, generates `checksums.txt`, and publishes the GitHub Release automatically
+Download the matching binary from [GitHub Releases](https://github.com/wangsizhu0504/nvc/releases), place it on `PATH`, then run shell setup.
 
 ### Cargo
 
@@ -69,19 +58,11 @@ brew install nvc
 
 ## Shell Setup
 
-`nvc` works by exporting environment variables and adjusting `PATH` with the output of `nvc env`.
+Add one of the following to your shell profile.
 
-To enable automatic switching on directory change, use `--use-on-cd`.
+### Bash / Zsh
 
-### Bash
-
-```bash
-eval "$(nvc env --use-on-cd)"
-```
-
-### Zsh
-
-```zsh
+```sh
 eval "$(nvc env --use-on-cd)"
 ```
 
@@ -103,71 +84,37 @@ nvc env --use-on-cd | Out-String | Invoke-Expression
 FOR /f "tokens=*" %i IN ('nvc env --use-on-cd') DO CALL %i
 ```
 
-## Shared Global Packages
+## Common Commands
 
-`nvc` exports a shared `NPM_CONFIG_PREFIX`, so packages installed with `npm install -g` are available across installed Node versions.
+```sh
+# list versions
+nvc list-remote
+nvc list
 
-Behavior:
+# install / switch
+nvc install <version>
+nvc use <version>
+nvc current
 
-- Shared prefix directory: `<NVC_DIR>/global`
-- If `NVC_DIR` is not set: `<default nvc base dir>/global`
-- Global binaries remain available after `nvc use` and `nvc exec`
+# run with a specific runtime
+nvc exec --using=<version> node --version
 
-Operational helpers:
+# diagnostics and cleanup
+nvc doctor
+nvc cache dir
+nvc cache size --bytes
+nvc cache clear
+nvc prune --dry-run
+nvc prune --all
+```
 
-- `nvc doctor` inspects shell setup, active version state, `PATH`, and shared global prefix health
-- `nvc cache dir|size|clear` manages download cache state
-- `nvc prune` removes stale download artifacts, broken aliases, and stale multishell links
+## Release Process
 
-Good fits:
-
-- `typescript`
-- `eslint`
-- `pnpm`
-- `yarn`
-- other CLI-focused npm tools
-
-Known limit:
-
-- Packages with native addons or strong Node-version coupling may need reinstall for a specific runtime
-
-## Compatibility
-
-Default support target:
-
-- macOS
-- Linux
-- Windows
-
-Shell support target:
-
-- Bash
-- Zsh
-- Fish
-- PowerShell
-- Windows Cmd
-
-## Troubleshooting
-
-Common checks:
-
-- Run `nvc doctor` for a structured health check of shell setup, PATH, and shared global prefix state
-- Run `nvc env` in your shell startup file
-- Confirm `nvc env --json` returns the expected `NVC_DIR` and `NVC_MULTISHELL_PATH`
-- Verify the active shell session includes the `nvc` bin path on `PATH`
-- Re-run `nvc install <version>` if a download was interrupted
-- If `nvc install --use` fails, source `nvc env` first and retry from an initialized shell session
-- If a mirror serves incomplete or modified artifacts, `nvc install` will stop on checksum verification instead of activating the archive
-
-## Cache and Cleanup
-
-`nvc` now includes built-in maintenance commands for cache visibility and cleanup.
-
-- `nvc cache dir`: print the downloads cache directory
-- `nvc cache size --bytes`: show the current downloads cache size
-- `nvc cache clear`: clear the downloads cache
-- `nvc prune --dry-run`: preview stale state cleanup
-- `nvc prune --all`: remove stale downloads, broken aliases, and stale multishell links
+- Official release tags use `vX.Y.Z`
+- Release workflow can be triggered by:
+  - pushing a `vX.Y.Z` tag, or
+  - manually dispatching the `Release` workflow with an existing tag
+- Pipeline runs quality checks, builds macOS/Linux/Windows binaries, generates `checksums.txt`, then publishes GitHub Release assets
 
 ## Development
 
@@ -182,33 +129,13 @@ cargo test --bin nvc remote_node_index::tests::test_list -- --ignored --exact --
 cargo test --test shared_global_prefix exec_uses_shared_prefix_and_global_packages_are_shared -- --ignored --exact --nocapture
 ```
 
-Test tiers and CI expectations are documented in [Testing Strategy](./docs/testing.md).
+Related docs:
 
-## Release and Support Policy
-
-- PR checks cover formatting, linting, fast tests, and real-download smoke validation
-- Heavier multi-platform real-download regressions run on schedule or before release
-- Releases should publish artifacts and checksums together
-- Pushing a `vX.Y.Z` tag triggers automated validation, multi-platform builds, checksum generation, and GitHub Release publication after the build jobs succeed
-- Breaking behavior changes follow semver and must be documented in the changelog
-
-## Upstream and Licensing Policy
-
-`nvc` is an independent project that references upstream `fnm` behavior selectively.
-
-Rules:
-
-- Upstream behavior may be used as implementation reference
-- Upstream code is not merged blindly
-- Licensing and fork boundaries are documented explicitly
-- Any future upstream alignment must be reviewed against project policy before adoption
-
-See [Maintainer Policy](./docs/maintainer-policy.md), [Support Policy](./docs/support-policy.md), and [Release Checklist](./docs/release-checklist.md).
-
-## Acknowledgements
-
-The project originated as a fork-informed effort inspired by `fnm`, but is maintained as its own product.
+- [Testing Strategy](./docs/testing.md)
+- [Release Checklist](./docs/release-checklist.md)
+- [Maintainer Policy](./docs/maintainer-policy.md)
+- [Support Policy](./docs/support-policy.md)
 
 ## License
 
-[MIT](./LICENSE) License © 2024-PRESENT [Kriszu](https://github.com/wangsizhu0504)
+[MIT](./LICENSE) © 2024-PRESENT [Kriszu](https://github.com/wangsizhu0504)
