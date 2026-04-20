@@ -12,6 +12,7 @@ fn run_nvc(base_dir: &Path, args: &[&str]) -> Output {
         .args(args)
         .env("NVC_DIR", base_dir)
         .env("NO_COLOR", "1")
+        .env_remove("NVC_MULTISHELL_PATH")
         .output()
         .expect("failed to run nvc")
 }

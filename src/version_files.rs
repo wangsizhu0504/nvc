@@ -15,14 +15,15 @@ pub fn get_user_version_for_directory(
     path: impl AsRef<Path>,
     config: &NvcConfig,
 ) -> Option<UserVersion> {
-    match config.version_file_strategy() {
+    let detected_version = match config.version_file_strategy() {
         VersionFileStrategy::Local => get_user_version_for_single_directory(path, config),
-        VersionFileStrategy::Recursive => get_user_version_for_directory_recursive(path, config)
-            .or_else(|| {
-                info!("Did not find anything recursively. Falling back to default alias.");
-                default_version::find_default_version(config).map(UserVersion::Full)
-            }),
-    }
+        VersionFileStrategy::Recursive => get_user_version_for_directory_recursive(path, config),
+    };
+
+    detected_version.or_else(|| {
+        info!("Did not find any version file. Falling back to default alias.");
+        default_version::find_default_version(config).map(UserVersion::Full)
+    })
 }
 
 fn get_user_version_for_directory_recursive(
@@ -103,3 +104,44 @@ pub fn get_user_version_for_file(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::version::Version;
+    use clap::Parser;
+
+    fn config_with_strategy(strategy: &str, base_dir: &Path) -> NvcConfig {
+        NvcConfig::parse_from(["nvc", "--version-file-strategy", strategy])
+            .with_base_dir(Some(base_dir.to_path_buf()))
+    }
+
+    #[test]
+    fn test_local_strategy_falls_back_to_default_alias_when_no_version_file() {
+        let base_dir = tempfile::tempdir().unwrap();
+        let project_dir = tempfile::tempdir().unwrap();
+        let config = config_with_strategy("local", base_dir.path());
+
+        let result = get_user_version_for_directory(project_dir.path(), &config);
+
+        assert_eq!(
+            result,
+            Some(UserVersion::Full(Version::Alias("default".into())))
+        );
+    }
+
+    #[test]
+    fn test_recursive_strategy_falls_back_to_default_alias_when_no_version_file() {
+        let base_dir = tempfile::tempdir().unwrap();
+        let project_dir = tempfile::tempdir().unwrap();
+        let config = config_with_strategy("recursive", base_dir.path());
+
+        let result = get_user_version_for_directory(project_dir.path(), &config);
+
+        assert_eq!(
+            result,
+            Some(UserVersion::Full(Version::Alias("default".into())))
+        );
+    }
+}
+

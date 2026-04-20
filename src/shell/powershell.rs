@@ -20,19 +20,10 @@ impl Shell for PowerShell {
     }
 
     fn use_on_cd(&self, config: &crate::config::NvcConfig) -> anyhow::Result<String> {
-        let version_file_exists_condition = if config.resolve_engines() {
-            "(Test-Path .nvmrc) -Or (Test-Path .node-version) -Or (Test-Path package.json)"
-        } else {
-            "(Test-Path .nvmrc) -Or (Test-Path .node-version)"
-        };
         let autoload_hook = match config.version_file_strategy() {
-            VersionFileStrategy::Local => formatdoc!(
-                r"
-                    If ({version_file_exists_condition}) {{ & nvc use --silent-if-unchanged }}
-                ",
-                version_file_exists_condition = version_file_exists_condition,
-            ),
-            VersionFileStrategy::Recursive => String::from(r"nvc use --silent-if-unchanged"),
+            VersionFileStrategy::Local | VersionFileStrategy::Recursive => {
+                String::from(r"nvc use --silent-if-unchanged")
+            }
         };
         Ok(formatdoc!(
             r"
