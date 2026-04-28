@@ -10,6 +10,7 @@ pub mod exec;
 pub mod install;
 pub mod ls_local;
 pub mod ls_remote;
+pub mod pin;
 pub mod prune;
 pub mod unalias;
 pub mod uninstall;

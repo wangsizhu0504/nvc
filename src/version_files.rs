@@ -104,7 +104,6 @@ pub fn get_user_version_for_file(
         }
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,4 +143,3 @@ mod tests {
         );
     }
 }
-

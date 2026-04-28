@@ -95,6 +95,7 @@ nvc list
 nvc install <version>
 nvc use <version>
 nvc current
+nvc pin <version>
 
 # 使用指定运行时执行命令
 nvc exec --using=<version> node --version

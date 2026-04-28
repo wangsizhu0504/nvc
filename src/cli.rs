@@ -75,6 +75,10 @@ pub enum SubCommand {
     #[clap(name = "current", bin_name = "current")]
     Current(commands::current::Current),
 
+    /// Write a Node.js version to .node-version
+    #[clap(name = "pin", bin_name = "pin")]
+    Pin(commands::pin::Pin),
+
     /// Run a command within nvc context
     ///
     /// Example:
@@ -110,6 +114,7 @@ impl SubCommand {
             Self::Alias(cmd) => cmd.call(config),
             Self::Default(cmd) => cmd.call(config),
             Self::Current(cmd) => cmd.call(config),
+            Self::Pin(cmd) => cmd.call(config),
             Self::Exec(cmd) => cmd.call(config),
             Self::Uninstall(cmd) => cmd.call(config),
             Self::Unalias(cmd) => cmd.call(config),

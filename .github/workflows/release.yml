@@ -68,13 +68,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.prepare.outputs.release_tag }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/checkout@v4
-        with:
-          ref: refs/tags/${{ needs.prepare.outputs.release_tag }}
       - name: Run fast quality gate
         run: |
           cargo fmt --check
@@ -89,11 +89,11 @@ jobs:
     runs-on: windows-latest
     needs: [prepare, quality]
     steps:
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ needs.prepare.outputs.release_tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Build release binary
         run: cargo build --release
         env:
@@ -114,11 +114,11 @@ jobs:
     runs-on: macos-latest
     needs: [prepare, quality]
     steps:
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ needs.prepare.outputs.release_tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Build release binary
         run: cargo build --release
         env:
@@ -195,7 +195,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          find dist -type f -maxdepth 2 -exec cp {} release-assets/ \;
+          find dist -maxdepth 2 -type f -exec cp {} release-assets/ \;
           ls -la release-assets
       - name: Generate checksums
         shell: bash

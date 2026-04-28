@@ -13,8 +13,14 @@ pub fn dir_size(path: &Path) -> std::io::Result<u64> {
     }
 
     let metadata = std::fs::symlink_metadata(path)?;
+    if metadata.file_type().is_symlink() {
+        return Ok(0);
+    }
     if metadata.is_file() {
         return Ok(metadata.len());
+    }
+    if !metadata.is_dir() {
+        return Ok(0);
     }
 
     let mut total = 0;
@@ -137,4 +143,22 @@ fn remove_regular_path(path: &Path) -> std::io::Result<()> {
         std::fs::remove_dir_all(path)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn dir_size_does_not_follow_symlinked_directories() {
+        let root = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
+        std::fs::write(external.path().join("payload.bin"), b"not-cache").unwrap();
+        std::os::unix::fs::symlink(external.path(), root.path().join("linked-dir")).unwrap();
+
+        let size = dir_size(root.path()).unwrap();
+
+        assert_eq!(size, 0);
+    }
 }

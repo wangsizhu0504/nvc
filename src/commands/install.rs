@@ -132,6 +132,8 @@ impl Command for Install {
             }
         };
 
+        ensure_shared_global_prefix(config)?;
+
         // Automatically swap Apple Silicon to x64 arch for appropriate versions.
         let safe_arch = get_safe_arch(config.arch, &version);
 
@@ -178,6 +180,14 @@ impl Command for Install {
 
         Ok(())
     }
+}
+
+fn ensure_shared_global_prefix(config: &NvcConfig) -> Result<(), Error> {
+    std::fs::create_dir_all(config.global_prefix_dir())?;
+    if !cfg!(windows) {
+        std::fs::create_dir_all(config.global_bin_dir())?;
+    }
+    Ok(())
 }
 
 fn tag_alias(config: &NvcConfig, matched_version: &Version, alias: &Version) -> Result<(), Error> {
@@ -276,6 +286,19 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
+
+    #[test]
+    fn test_ensure_shared_global_prefix_creates_expected_directories() {
+        let base_dir = tempfile::tempdir().unwrap();
+        let config = NvcConfig::default().with_base_dir(Some(base_dir.path().to_path_buf()));
+
+        ensure_shared_global_prefix(&config).unwrap();
+
+        assert!(config.global_prefix_dir().exists());
+        if !cfg!(windows) {
+            assert!(config.global_bin_dir().exists());
+        }
+    }
 
     #[test]
     #[ignore = "real-download"]
