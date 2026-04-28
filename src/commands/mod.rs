@@ -12,6 +12,7 @@ pub mod ls_local;
 pub mod ls_remote;
 pub mod pin;
 pub mod prune;
+pub mod self_command;
 pub mod unalias;
 pub mod uninstall;
 pub mod r#use;

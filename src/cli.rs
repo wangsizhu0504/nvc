@@ -49,6 +49,10 @@ pub enum SubCommand {
     #[clap(name = "completions", bin_name = "completions")]
     Completions(commands::completions::Completions),
 
+    /// Manage the nvc executable itself
+    #[clap(name = "self", bin_name = "nvc self")]
+    SelfCommand(commands::self_command::SelfCommand),
+
     /// Inspect and manage nvc download cache
     #[clap(name = "cache", bin_name = "cache")]
     Cache(commands::cache::Cache),
@@ -109,6 +113,7 @@ impl SubCommand {
             Self::Env(cmd) => cmd.call(config),
             Self::Use(cmd) => cmd.call(config),
             Self::Completions(cmd) => cmd.call(config),
+            Self::SelfCommand(cmd) => cmd.call(config),
             Self::Cache(cmd) => cmd.call(config),
             Self::Doctor(cmd) => cmd.call(config),
             Self::Alias(cmd) => cmd.call(config),

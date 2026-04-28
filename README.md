@@ -107,6 +107,10 @@ nvc cache size --bytes
 nvc cache clear
 nvc prune --dry-run
 nvc prune --all
+
+# update nvc itself
+nvc self update
+nvc self update --version v1.0.2
 ```
 
 ## Release Process

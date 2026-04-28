@@ -107,6 +107,10 @@ nvc cache size --bytes
 nvc cache clear
 nvc prune --dry-run
 nvc prune --all
+
+# 更新 nvc 自身
+nvc self update
+nvc self update --version v1.0.2
 ```
 
 ## 发布流程
