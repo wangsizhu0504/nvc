@@ -53,7 +53,7 @@ cargo install nvc
 ### Homebrew
 
 ```sh
-brew install nvc
+brew install wangsizhu0504/tap/nvc
 ```
 
 ## Shell 初始化

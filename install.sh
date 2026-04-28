@@ -78,7 +78,7 @@ set_filename() {
 
 download_nvc() {
   if [ "$USE_HOMEBREW" = "true" ]; then
-    brew install nvc
+    brew install wangsizhu0504/tap/nvc
   else
     if [ "$RELEASE" = "latest" ]; then
       URL="https://github.com/wangsizhu0504/nvc/releases/latest/download/$FILENAME.zip"
